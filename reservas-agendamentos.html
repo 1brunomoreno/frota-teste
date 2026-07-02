@@ -1155,24 +1155,24 @@ tr:hover td{background:var(--gray-50)}
   <!-- CHECKLIST DE ITENS -->
   <div class="fg ck-wrap">
     <div style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">
-      Checklist de saída <span id="sd-ck-asterisk" style="color:var(--danger)">*</span>
-      <span id="sd-ck-hint" style="font-size:9px;font-weight:400;color:var(--gray-400);text-transform:none;letter-spacing:0;margin-left:4px">(obrigatório se boas condições)</span>
+      Checklist de saída
+      <span id="sd-ck-hint" style="font-size:9px;font-weight:400;color:var(--gray-400);text-transform:none;letter-spacing:0;margin-left:4px">(água e óleo obrigatório · demais apenas se necessário)</span>
     </div>
     <div style="background:var(--gray-50);border:1.5px solid var(--gray-200);border-radius:var(--r10);overflow:hidden">
       <label id="sd-ck-pneu-lbl" style="display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer;border-bottom:1px solid var(--gray-200)">
         <input type="checkbox" id="sd-ck-pneu" onchange="validarChecklistSaida()" style="width:17px;height:17px;accent-color:var(--green);flex-shrink:0">
-        <div><div style="font-size:13px;font-weight:600;color:var(--gray-700)">🔧 Calibragem dos pneus</div><div style="font-size:11px;color:var(--gray-400)">Confirmo que a calibragem está adequada</div></div>
+        <div><div style="font-size:13px;font-weight:600;color:var(--gray-700)">🔧 Calibragem dos pneus <span style="font-size:10px;font-weight:400;color:var(--gray-400)">(opcional)</span></div><div style="font-size:11px;color:var(--gray-400)">Marque apenas se foi verificado</div></div>
       </label>
       <label id="sd-ck-fluidos-lbl" style="display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer;border-bottom:1px solid var(--gray-200)">
         <input type="checkbox" id="sd-ck-fluidos" onchange="validarChecklistSaida()" style="width:17px;height:17px;accent-color:var(--green);flex-shrink:0">
-        <div><div style="font-size:13px;font-weight:600;color:var(--gray-700)">💧 Checagem de água e óleo</div><div style="font-size:11px;color:var(--gray-400)">Confirmo que os níveis estão adequados</div></div>
+        <div><div style="font-size:13px;font-weight:600;color:var(--gray-700)">💧 Checagem de água e óleo <span style="color:var(--danger)">*</span></div><div style="font-size:11px;color:var(--gray-400)">Confirmo que os níveis estão adequados</div></div>
       </label>
       <label id="sd-ck-limpeza-lbl" style="display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer">
         <input type="checkbox" id="sd-ck-limpeza" onchange="validarChecklistSaida()" style="width:17px;height:17px;accent-color:var(--green);flex-shrink:0">
-        <div><div style="font-size:13px;font-weight:600;color:var(--gray-700)">🧹 Limpeza do veículo</div><div style="font-size:11px;color:var(--gray-400)">Confirmo que o veículo está limpo</div></div>
+        <div><div style="font-size:13px;font-weight:600;color:var(--gray-700)">🧹 Limpeza do veículo <span style="font-size:10px;font-weight:400;color:var(--gray-400)">(opcional)</span></div><div style="font-size:11px;color:var(--gray-400)">Marque apenas se foi verificado</div></div>
       </label>
     </div>
-    <div id="sd-ck-aviso" style="display:none;font-size:11px;color:var(--danger);margin-top:5px;padding:6px 10px;background:#FEF2F2;border-radius:var(--r6);border:1px solid #FECACA"><i class="ti ti-alert-circle"></i> Confirme todos os itens do checklist para prosseguir.</div>
+    <div id="sd-ck-aviso" style="display:none;font-size:11px;color:var(--danger);margin-top:5px;padding:6px 10px;background:#FEF2F2;border-radius:var(--r6);border:1px solid #FECACA"><i class="ti ti-alert-circle"></i> Confirme a checagem de água e óleo para prosseguir.</div>
   </div>
 
   <!-- CONDIÇÕES -->
@@ -1809,8 +1809,8 @@ function validarChecklistSaida(){
     const lbl=$('sd-ck-'+id+'-lbl');
     if(lbl) lbl.style.background=$('sd-ck-'+id).checked?'rgba(22,163,74,.07)':'';
   });
-  const todos=$('sd-ck-pneu').checked&&$('sd-ck-fluidos').checked&&$('sd-ck-limpeza').checked;
-  const av=$('sd-ck-aviso'); if(av) av.style.display=todos?'none':'none';
+  const okFluidos=$('sd-ck-fluidos').checked;
+  const av=$('sd-ck-aviso'); if(av) av.style.display=okFluidos?'none':'none';
 }
 function abrirSaida(rid){
   const r=reservas.find(x=>x.id===rid);const v=veiculos.find(x=>x.id===r.veiculo_id);
@@ -1840,16 +1840,12 @@ async function salvarSaida(){
   if(!km){toast('Informe o Km de saída.','err');$('sd-km').focus();return}
 
   if(!avaria){
-    // BOAS CONDIÇÕES → checklist obrigatório, obs opcional
-    const ckPneu=$('sd-ck-pneu').checked;
+    // BOAS CONDIÇÕES → apenas água e óleo é obrigatório; pneus e limpeza são opcionais
     const ckFluidos=$('sd-ck-fluidos').checked;
-    const ckLimpeza=$('sd-ck-limpeza').checked;
-    if(!ckPneu||!ckFluidos||!ckLimpeza){
+    if(!ckFluidos){
       const av=$('sd-ck-aviso'); if(av) av.style.display='block';
-      if(!ckPneu){const l=$('sd-ck-pneu-lbl');if(l)l.style.background='#FEF2F2';}
-      if(!ckFluidos){const l=$('sd-ck-fluidos-lbl');if(l)l.style.background='#FEF2F2';}
-      if(!ckLimpeza){const l=$('sd-ck-limpeza-lbl');if(l)l.style.background='#FEF2F2';}
-      toast('Confirme todos os itens do checklist.','err');return;
+      const l=$('sd-ck-fluidos-lbl');if(l)l.style.background='#FEF2F2';
+      toast('Confirme a checagem de água e óleo.','err');return;
     }
   } else {
     // AVARIA → obs obrigatório, checklist não obrigatório

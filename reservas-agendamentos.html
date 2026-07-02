@@ -376,7 +376,12 @@ tr:hover td{background:var(--gray-50)}
 
 /* RESPONSIVE */
 @media(max-width:640px){
-  .topbar{padding:0 12px;height:52px}
+  .topbar{padding:8px 12px;height:auto;min-height:52px;flex-wrap:wrap;row-gap:8px}
+  .tb-brand{order:1}
+  .tb-right{order:2}
+  .admin-topnav{order:3;flex:1 1 100%;width:100%;margin:0;justify-content:flex-start;padding-top:6px;border-top:1px solid rgba(255,255,255,.15)}
+  .admin-topnav.on{display:flex}
+  .atnav{padding:7px 11px;font-size:11px;flex-shrink:0}
   .tb-sys{display:none}
   .main{padding:16px 10px 40px}
   .hero{padding:32px 16px 36px}
@@ -528,6 +533,7 @@ tr:hover td{background:var(--gray-50)}
           <div class="fg" style="margin:0"><label class="flbl">Mês/Ano</label><input type="month" class="fi" id="fin-fmes" onchange="renderFinAtivo()"></div>
           <button class="btn btn-p" onclick="renderFinAtivo()"><i class="ti ti-search"></i> Filtrar</button>
           <button class="btn btn-ghost" onclick="exportarRelatorioFinPDF()" title="Exportar PDF"><i class="ti ti-file-type-pdf"></i> PDF</button>
+          <button class="btn btn-ghost" onclick="exportarRelatorioFinCSV()" title="Exportar CSV"><i class="ti ti-file-type-csv"></i> CSV</button>
         </div>
       </div>
       <!-- Abas Dashboard / Lançamentos -->
@@ -545,10 +551,21 @@ tr:hover td{background:var(--gray-50)}
           <div class="fin-chart-box"><div class="fin-chart-title"><i class="ti ti-chart-donut"></i> Divisão por Categoria</div><canvas id="fin-chart-categoria" height="200"></canvas></div>
         </div>
         <div class="fin-chart-box" style="margin-bottom:14px"><div class="fin-chart-title"><i class="ti ti-gas-station"></i> Média CPL (R$/Litro) por Mês</div><canvas id="fin-chart-cpl" height="80"></canvas></div>
-        <div class="fin-chart-box" id="fin-rank-box"><div class="fin-chart-title"><i class="ti ti-trophy"></i> Ranking — Veículos Mais Caros</div><div id="fin-rank-list"></div></div>
+        <div class="fin-kpi-grid" id="fin-indicadores" style="margin-bottom:14px"></div>
+        <div class="fin-chart-grid">
+          <div class="fin-chart-box" id="fin-rank-box"><div class="fin-chart-title"><i class="ti ti-trophy"></i> Ranking — Veículos Mais Caros</div><div id="fin-rank-list"></div></div>
+          <div class="fin-chart-box" id="fin-rank-multas-box"><div class="fin-chart-title" style="color:#DC2626"><i class="ti ti-alert-triangle"></i> Ranking — Veículos com Mais Multas</div><div id="fin-rank-multas-list"></div></div>
+        </div>
       </div>
       <!-- Lançamentos -->
       <div id="fin-lanc-sec" style="display:none">
+        <div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--r12);padding:12px 16px;margin-bottom:14px">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end">
+            <div class="fg" style="margin:0"><label class="flbl">Tipo de combustível</label><select class="fi" id="fin-tcomb" onchange="renderFinanceiro()"><option value="">Todos</option><option value="gasolina">Gasolina</option><option value="etanol">Etanol</option><option value="diesel">Diesel</option><option value="gnv">GNV</option></select></div>
+            <div class="fg" style="margin:0"><label class="flbl">Tipo de manutenção</label><select class="fi" id="fin-tmanut" onchange="renderFinanceiro()"><option value="">Todos</option><option value="oleo">Troca de óleo</option><option value="revisao">Revisão geral</option><option value="freios">Freios</option><option value="pneus">Pneus</option><option value="eletrica">Elétrica</option><option value="funilaria">Funilaria / Pintura</option><option value="outro">Outro</option></select></div>
+            <div class="fg" style="margin:0"><label class="flbl">Categoria de outros custos</label><select class="fi" id="fin-catoc" onchange="renderFinanceiro()"><option value="">Todas</option><option value="pedagio">Pedágio</option><option value="estacionamento">Estacionamento</option><option value="documentacao">Documentação/IPVA</option><option value="seguro">Seguro</option><option value="outros">Outros</option></select></div>
+          </div>
+        </div>
         <div id="fin-detalhes"></div>
       </div>
     </div>
@@ -964,16 +981,26 @@ tr:hover td{background:var(--gray-50)}
               <div class="fin-chart-box"><div class="fin-chart-title"><i class="ti ti-chart-donut"></i> Divisão por Categoria</div><canvas id="fadm-chart-categoria" height="200"></canvas></div>
             </div>
             <div class="fin-chart-box" style="margin-bottom:14px"><div class="fin-chart-title"><i class="ti ti-gas-station"></i> Média CPL por Mês</div><canvas id="fadm-chart-cpl" height="80"></canvas></div>
-            <div class="fin-chart-box" id="fadm-rank-box"><div class="fin-chart-title"><i class="ti ti-trophy"></i> Ranking — Veículos Mais Caros</div><div id="fadm-rank-list"></div></div>
+            <div class="fin-kpi-grid" id="fadm-indicadores" style="margin-bottom:14px"></div>
+            <div class="fin-chart-grid">
+              <div class="fin-chart-box" id="fadm-rank-box"><div class="fin-chart-title"><i class="ti ti-trophy"></i> Ranking — Veículos Mais Caros</div><div id="fadm-rank-list"></div></div>
+              <div class="fin-chart-box" id="fadm-rank-multas-box"><div class="fin-chart-title" style="color:#DC2626"><i class="ti ti-alert-triangle"></i> Ranking — Veículos com Mais Multas</div><div id="fadm-rank-multas-list"></div></div>
+            </div>
           </div>
           <!-- Lançamentos Admin -->
           <div id="fadm-lanc-sec" style="display:none">
             <div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--r12);padding:12px 14px;margin-bottom:14px">
-              <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end">
+              <div style="display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:10px;align-items:end">
                 <div class="fg" style="margin:0"><label class="flbl">Veículo</label><select class="fi" id="fadm-lanc-vei" onchange="renderFinLancAdm()"><option value="">Todos</option></select></div>
                 <div class="fg" style="margin:0"><label class="flbl">Mês/Ano</label><input type="month" class="fi" id="fadm-lanc-mes" onchange="renderFinLancAdm()"></div>
                 <button class="btn btn-p btn-sm" onclick="renderFinLancAdm()"><i class="ti ti-search"></i> Filtrar</button>
                 <button class="btn btn-ghost btn-sm" onclick="exportarRelatorioFinPDFAdm()"><i class="ti ti-file-type-pdf"></i> PDF</button>
+                <button class="btn btn-ghost btn-sm" onclick="exportarRelatorioFinCSVAdm()"><i class="ti ti-file-type-csv"></i> CSV</button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end;margin-top:10px">
+                <div class="fg" style="margin:0"><label class="flbl">Tipo de combustível</label><select class="fi" id="fadm-lanc-tcomb" onchange="renderFinLancAdm()"><option value="">Todos</option><option value="gasolina">Gasolina</option><option value="etanol">Etanol</option><option value="diesel">Diesel</option><option value="gnv">GNV</option></select></div>
+                <div class="fg" style="margin:0"><label class="flbl">Tipo de manutenção</label><select class="fi" id="fadm-lanc-tmanut" onchange="renderFinLancAdm()"><option value="">Todos</option><option value="oleo">Troca de óleo</option><option value="revisao">Revisão geral</option><option value="freios">Freios</option><option value="pneus">Pneus</option><option value="eletrica">Elétrica</option><option value="funilaria">Funilaria / Pintura</option><option value="outro">Outro</option></select></div>
+                <div class="fg" style="margin:0"><label class="flbl">Categoria de outros custos</label><select class="fi" id="fadm-lanc-catoc" onchange="renderFinLancAdm()"><option value="">Todas</option><option value="pedagio">Pedágio</option><option value="estacionamento">Estacionamento</option><option value="documentacao">Documentação/IPVA</option><option value="seguro">Seguro</option><option value="outros">Outros</option></select></div>
               </div>
             </div>
             <div class="fin-kpi-grid" id="fadm-lanc-kpis"></div>
@@ -2991,30 +3018,13 @@ async function salvarSenhaFin(){
 function renderFinanceiro(){
   const fv=$('fin-fvei')?.value;
   const mes=$('fin-fmes')?.value;
+  const tipoComb=$('fin-tcomb')?.value||'';
+  const tipoManut=$('fin-tmanut')?.value||'';
+  const catOc=$('fin-catoc')?.value||'';
   const[ano,mm]=mes?mes.split('-'):[null,null];
-  const de=mes?mes+'-01':null;
-  const ate=mes?mes+'-'+new Date(parseInt(ano),parseInt(mm),0).getDate():null;
   const periodoLabel=mes?new Date(parseInt(ano),parseInt(mm)-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'Todo o período';
-  const veicFiltrados=fv?veiculos.filter(v=>String(v.id)===fv):veiculos;
-  let grandTotal=0,totalComb=0,totalMnt=0,totalOtros=0;
-  const rows=veicFiltrados.map(v=>{
-    const abasts=(v.abastecimentos||[]).filter(a=>(!de||a.data>=de)&&(!ate||a.data<=ate)).sort((a,b)=>b.data.localeCompare(a.data));
-    abasts.forEach(a=>{a._origIdx=(v.abastecimentos||[]).findIndex(x=>x===a);});
-    const custoAbast=abasts.reduce((s,a)=>s+(a.valor||0),0);
-    const abstsComLitro=abasts.filter(a=>a.litros&&a.valor);
-    const sumLit=abstsComLitro.reduce((s,a)=>s+(a.litros||0),0);
-    const cplMedio=sumLit>0?abstsComLitro.reduce((s,a)=>s+(a.valor||0),0)/sumLit:null;
-    const mnts=(v.manutencoes||[]).filter(m=>m.valor&&(!de||m.data>=de)&&(!ate||m.data<=ate));
-    mnts.forEach(m=>{m._origIdx=(v.manutencoes||[]).findIndex(x=>x===m);});
-    const custoManut=mnts.reduce((s,m)=>s+(m.valor||0),0);
-    const outros=(v.outros_custos||[]).filter(o=>(!de||o.data>=de)&&(!ate||o.data<=ate)).sort((a,b)=>b.data.localeCompare(a.data));
-    outros.forEach(o=>{o._origIdx=(v.outros_custos||[]).findIndex(x=>x===o);});
-    const custoOutros=outros.reduce((s,o)=>s+(o.valor||0),0);
-    const total=custoAbast+custoManut+custoOutros;
-    grandTotal+=total;totalComb+=custoAbast;totalMnt+=custoManut;totalOtros+=custoOutros;
-    if(!total&&!abasts.length&&!mnts.length&&!outros.length)return null;
-    return{v,abasts,custoAbast,cplMedio,sumLit,mnts,custoManut,outros,custoOutros,total};
-  }).filter(Boolean);
+  const{rows:allRows,grandTotal,totalComb,totalMnt,totalMultas,totalOtros,qtdMultas}=_calcFinData(fv,mes,tipoComb,tipoManut,catOc);
+  const rows=allRows.filter(r=>r.total>0||r.abasts.length||r.mnts.length||r.multas.length||r.outros.length);
 
   $('fin-kpis').innerHTML=
     '<div class="fin-kpi" style="background:#FFFBEB;border:1.5px solid #FDE68A">'+
@@ -3029,6 +3039,10 @@ function renderFinanceiro(){
     '<div class="fin-kpi" style="background:var(--gray-50);border:1.5px solid var(--gray-200)">'+
       '<div class="fin-kpi-lbl" style="color:var(--gray-400)">&#128295; Manutenções</div>'+
       '<div class="fin-kpi-val" style="color:var(--gray-700)">R$ '+totalMnt.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'+
+    '</div>'+
+    '<div class="fin-kpi" style="background:#FEF2F2;border:1.5px solid #FECACA">'+
+      '<div class="fin-kpi-lbl" style="color:#991B1B">&#9888; Multas ('+qtdMultas+')</div>'+
+      '<div class="fin-kpi-val" style="color:#DC2626">R$ '+totalMultas.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'+
     '</div>'+
     '<div class="fin-kpi" style="background:#F5F3FF;border:1.5px solid #DDD6FE">'+
       '<div class="fin-kpi-lbl" style="color:#5B21B6">&#128203; Outros</div>'+
@@ -3049,7 +3063,7 @@ function renderFinanceiro(){
       r.abasts.forEach(function(a){
         html+='<div class="fin-row">';
         html+='<div style="flex:1"><span style="font-weight:600;color:var(--gray-700)">'+fmt(a.data)+'</span>';
-        html+='<span style="color:var(--gray-400);margin-left:6px">'+(a.tipo||'')+(a.litros?' · '+a.litros+'L':'')+(a.posto?' · '+a.posto:'')+'</span>';
+        html+='<span style="color:var(--gray-400);margin-left:6px">'+(FUEL_MAP[a.tipo]||a.tipo||'')+(a.litros?' · '+a.litros+'L':'')+(a.posto?' · '+a.posto:'')+'</span>';
         if(a.cpl) html+='<span class="fin-tag" style="background:#FEF3C7;color:#92400E;margin-left:6px">R$ '+a.cpl.toFixed(2)+'/L</span>';
         html+='</div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0">';
         html+='<button class="fin-comprov-btn '+(a.comprovante?'has-link':'')+'" onclick="abrirComprovante(\''+r.v.id+'\','+a._origIdx+',\'abast\')">';
@@ -3068,6 +3082,19 @@ function renderFinanceiro(){
         html+='<button class="fin-comprov-btn '+(m.comprovante?'has-link':'')+'" onclick="abrirComprovante(\''+r.v.id+'\','+m._origIdx+',\'manut\')">';
         html+='<i class="ti '+(m.comprovante?'ti-paperclip':'ti-link')+'"></i> '+(m.comprovante?'NF':'Anexar NF')+'</button>';
         html+='<span style="font-weight:700;color:#92400E;min-width:72px;text-align:right">R$ '+m.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span></div></div>';
+      });
+    }
+    if(r.multas.length){
+      html+='<div class="fin-section-title" style="color:#991B1B"><i class="ti ti-alert-triangle" style="color:#DC2626"></i> Multas';
+      html+='<span style="font-weight:400;color:var(--gray-400);text-transform:none;letter-spacing:0"> R$ '+r.custoMultas.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span></div>';
+      r.multas.forEach(function(o){
+        html+='<div class="fin-row">';
+        html+='<div style="flex:1"><span style="font-weight:600;color:var(--gray-700)">'+fmt(o.data)+'</span>';
+        if(o.desc) html+='<span style="color:var(--gray-400);margin-left:6px">'+o.desc+'</span>';
+        html+='</div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0">';
+        html+='<button class="fin-comprov-btn '+(o.comprovante?'has-link':'')+'" onclick="abrirComprovante(\''+r.v.id+'\','+o._origIdx+',\'outro\')">';
+        html+='<i class="ti '+(o.comprovante?'ti-paperclip':'ti-link')+'"></i> '+(o.comprovante?'Ver':'Anexar')+'</button>';
+        html+='<span style="font-weight:700;color:#DC2626;min-width:72px;text-align:right">R$ '+o.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</span></div></div>';
       });
     }
     if(r.outros.length){
@@ -3218,30 +3245,34 @@ let _finCharts={};
 
 function _destroyChart(id){if(_finCharts[id]){_finCharts[id].destroy();delete _finCharts[id];}}
 
-function _calcFinData(fv, mes){
+function _calcFinData(fv, mes, tipoComb, tipoManut, catOc){
   const[ano,mm]=mes?mes.split('-'):[null,null];
   const de=mes?mes+'-01':null;
   const ate=mes?mes+'-'+new Date(parseInt(ano),parseInt(mm),0).getDate():null;
   const veicFiltrados=fv?veiculos.filter(v=>String(v.id)===fv):veiculos;
-  let grandTotal=0,totalComb=0,totalMnt=0,totalOtros=0;
+  let grandTotal=0,totalComb=0,totalMnt=0,totalMultas=0,totalOtros=0,qtdMultas=0;
   const rows=veicFiltrados.map(v=>{
-    const abasts=(v.abastecimentos||[]).filter(a=>(!de||a.data>=de)&&(!ate||a.data<=ate));
+    const abasts=(v.abastecimentos||[]).filter(a=>(!de||a.data>=de)&&(!ate||a.data<=ate)&&(!tipoComb||a.tipo===tipoComb)).sort((a,b)=>b.data.localeCompare(a.data));
     abasts.forEach(a=>{a._origIdx=(v.abastecimentos||[]).findIndex(x=>x===a);});
     const custoAbast=abasts.reduce((s,a)=>s+(a.valor||0),0);
     const abstsComLitro=abasts.filter(a=>a.litros&&a.valor);
     const sumLit=abstsComLitro.reduce((s,a)=>s+(a.litros||0),0);
     const cplMedio=sumLit>0?abstsComLitro.reduce((s,a)=>s+(a.valor||0),0)/sumLit:null;
-    const mnts=(v.manutencoes||[]).filter(m=>m.valor&&(!de||m.data>=de)&&(!ate||m.data<=ate));
+    const mnts=(v.manutencoes||[]).filter(m=>m.valor&&(!de||m.data>=de)&&(!ate||m.data<=ate)&&(!tipoManut||m.tipo===tipoManut)).sort((a,b)=>b.data.localeCompare(a.data));
     mnts.forEach(m=>{m._origIdx=(v.manutencoes||[]).findIndex(x=>x===m);});
     const custoManut=mnts.reduce((s,m)=>s+(m.valor||0),0);
-    const outros=(v.outros_custos||[]).filter(o=>(!de||o.data>=de)&&(!ate||o.data<=ate));
+    const ocAll=(v.outros_custos||[]).filter(o=>(!de||o.data>=de)&&(!ate||o.data<=ate));
+    const multas=ocAll.filter(o=>o.cat==='multa').sort((a,b)=>b.data.localeCompare(a.data));
+    multas.forEach(o=>{o._origIdx=(v.outros_custos||[]).findIndex(x=>x===o);});
+    const custoMultas=multas.reduce((s,o)=>s+(o.valor||0),0);
+    const outros=ocAll.filter(o=>o.cat!=='multa'&&(!catOc||o.cat===catOc)).sort((a,b)=>b.data.localeCompare(a.data));
     outros.forEach(o=>{o._origIdx=(v.outros_custos||[]).findIndex(x=>x===o);});
     const custoOutros=outros.reduce((s,o)=>s+(o.valor||0),0);
-    const total=custoAbast+custoManut+custoOutros;
-    grandTotal+=total;totalComb+=custoAbast;totalMnt+=custoManut;totalOtros+=custoOutros;
-    return{v,abasts,custoAbast,cplMedio,sumLit,mnts,custoManut,outros,custoOutros,total};
+    const total=custoAbast+custoManut+custoMultas+custoOutros;
+    grandTotal+=total;totalComb+=custoAbast;totalMnt+=custoManut;totalMultas+=custoMultas;totalOtros+=custoOutros;qtdMultas+=multas.length;
+    return{v,abasts,custoAbast,cplMedio,sumLit,mnts,custoManut,multas,custoMultas,outros,custoOutros,total};
   });
-  return{rows,grandTotal,totalComb,totalMnt,totalOtros,veicFiltrados};
+  return{rows,grandTotal,totalComb,totalMnt,totalMultas,totalOtros,qtdMultas,veicFiltrados};
 }
 
 function _calcEvolucao(){
@@ -3255,37 +3286,47 @@ function _calcEvolucao(){
     const[ano,mm]=mes.split('-');
     const de=mes+'-01';
     const ate=mes+'-'+new Date(parseInt(ano),parseInt(mm),0).getDate();
-    let comb=0,mnt=0,outros=0,litros=0,valor=0;
+    let comb=0,mnt=0,multas=0,outros=0,litros=0,valor=0,qtdMultas=0;
     veiculos.forEach(v=>{
       (v.abastecimentos||[]).filter(a=>a.data>=de&&a.data<=ate).forEach(a=>{comb+=(a.valor||0);if(a.litros){litros+=a.litros;valor+=(a.valor||0);}});
       (v.manutencoes||[]).filter(m=>m.valor&&m.data>=de&&m.data<=ate).forEach(m=>{mnt+=(m.valor||0);});
-      (v.outros_custos||[]).filter(o=>o.data>=de&&o.data<=ate).forEach(o=>{outros+=(o.valor||0);});
+      (v.outros_custos||[]).filter(o=>o.data>=de&&o.data<=ate).forEach(o=>{if(o.cat==='multa'){multas+=(o.valor||0);qtdMultas++;}else{outros+=(o.valor||0);}});
     });
     const label=new Date(parseInt(ano),parseInt(mm)-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
     const cpl=litros>0?valor/litros:null;
-    return{mes,label,comb,mnt,outros,total:comb+mnt+outros,cpl};
+    return{mes,label,comb,mnt,multas,qtdMultas,outros,total:comb+mnt+multas+outros,cpl};
   });
 }
 
 function _renderFinDash(prefix){
   const fv=$(prefix+'fvei')?.value||'';
   const mes=$(prefix+'fmes')?.value||'';
-  const{rows,grandTotal,totalComb,totalMnt,totalOtros}=_calcFinData(fv,mes);
+  const{rows,grandTotal,totalComb,totalMnt,totalMultas,totalOtros,qtdMultas,veicFiltrados}=_calcFinData(fv,mes);
   const evolucao=_calcEvolucao();
   const PALETTE=['#003E7E','#00A651','#D97706','#7C3AED','#0EA5E9','#DC2626'];
+
+  // Alertas: compara período filtrado com a média dos meses anteriores (últimos 6, exceto o atual)
+  const evolAnteriores=evolucao.slice(0,-1);
+  const mediaMultas=evolAnteriores.length?evolAnteriores.reduce((s,e)=>s+e.qtdMultas,0)/evolAnteriores.length:0;
+  const mediaMnt=evolAnteriores.length?evolAnteriores.reduce((s,e)=>s+e.mnt,0)/evolAnteriores.length:0;
+  const mediaComb=evolAnteriores.length?evolAnteriores.reduce((s,e)=>s+e.comb,0)/evolAnteriores.length:0;
+  const alertaMultas=!!mes&&mediaMultas>0&&qtdMultas>mediaMultas*1.2;
+  const alertaMnt=!!mes&&mediaMnt>0&&totalMnt>mediaMnt*1.3;
+  const alertaComb=!!mes&&mediaComb>0&&totalComb>mediaComb*1.3;
 
   // KPIs
   const kpiEl=$(prefix+'kpis');
   if(kpiEl) kpiEl.innerHTML=
     '<div class="fin-kpi" style="background:#FFFBEB;border:1.5px solid #FDE68A"><div class="fin-kpi-lbl" style="color:#92400E">Total</div><div class="fin-kpi-val" style="color:#92400E">R$ '+grandTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>'+
-    '<div class="fin-kpi" style="background:#FEF3C7;border:1.5px solid #FDE68A"><div class="fin-kpi-lbl" style="color:#92400E">Combustível</div><div class="fin-kpi-val" style="color:#D97706">R$ '+totalComb.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>'+
-    '<div class="fin-kpi" style="background:var(--gray-50);border:1.5px solid var(--gray-200)"><div class="fin-kpi-lbl" style="color:var(--gray-400)">Manutenções</div><div class="fin-kpi-val" style="color:var(--gray-700)">R$ '+totalMnt.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>'+
+    '<div class="fin-kpi" style="background:#FEF3C7;border:1.5px solid #FDE68A"><div class="fin-kpi-lbl" style="color:#92400E">Combustível</div><div class="fin-kpi-val" style="color:#D97706">R$ '+totalComb.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'+(alertaComb?'<div style="font-size:10px;color:#DC2626;margin-top:3px;font-weight:700"><i class="ti ti-trending-up"></i> Acima da média</div>':'')+'</div>'+
+    '<div class="fin-kpi" style="background:var(--gray-50);border:1.5px solid var(--gray-200)"><div class="fin-kpi-lbl" style="color:var(--gray-400)">Manutenções</div><div class="fin-kpi-val" style="color:var(--gray-700)">R$ '+totalMnt.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'+(alertaMnt?'<div style="font-size:10px;color:#DC2626;margin-top:3px;font-weight:700"><i class="ti ti-trending-up"></i> Acima da média</div>':'')+'</div>'+
+    '<div class="fin-kpi" style="background:#FEF2F2;border:1.5px solid #FECACA"><div class="fin-kpi-lbl" style="color:#991B1B">Multas ('+qtdMultas+')</div><div class="fin-kpi-val" style="color:#DC2626">R$ '+totalMultas.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'+(alertaMultas?'<div style="font-size:10px;color:#DC2626;margin-top:3px;font-weight:700"><i class="ti ti-alert-triangle"></i> Acima da média</div>':'')+'</div>'+
     '<div class="fin-kpi" style="background:#F5F3FF;border:1.5px solid #DDD6FE"><div class="fin-kpi-lbl" style="color:#5B21B6">Outros</div><div class="fin-kpi-val" style="color:#7C3AED">R$ '+totalOtros.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>';
 
   // Gráfico 1: Evolução por mês (barra empilhada)
   _destroyChart(prefix+'evolucao');
   const ctxEv=document.getElementById(prefix+'chart-evolucao');
-  if(ctxEv) _finCharts[prefix+'evolucao']=new Chart(ctxEv,{type:'bar',data:{labels:evolucao.map(e=>e.label),datasets:[{label:'Combustível',data:evolucao.map(e=>e.comb),backgroundColor:'#D97706'},{label:'Manutenções',data:evolucao.map(e=>e.mnt),backgroundColor:'#003E7E'},{label:'Outros',data:evolucao.map(e=>e.outros),backgroundColor:'#7C3AED'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}});
+  if(ctxEv) _finCharts[prefix+'evolucao']=new Chart(ctxEv,{type:'bar',data:{labels:evolucao.map(e=>e.label),datasets:[{label:'Combustível',data:evolucao.map(e=>e.comb),backgroundColor:'#D97706'},{label:'Manutenções',data:evolucao.map(e=>e.mnt),backgroundColor:'#003E7E'},{label:'Multas',data:evolucao.map(e=>e.multas),backgroundColor:'#DC2626'},{label:'Outros',data:evolucao.map(e=>e.outros),backgroundColor:'#7C3AED'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}});
 
   // Gráfico 2: Pizza por veículo
   _destroyChart(prefix+'veiculo');
@@ -3296,15 +3337,26 @@ function _renderFinDash(prefix){
   // Gráfico 3: Pizza por categoria
   _destroyChart(prefix+'categoria');
   const ctxCat=document.getElementById(prefix+'chart-categoria');
-  if(ctxCat) _finCharts[prefix+'categoria']=new Chart(ctxCat,{type:'doughnut',data:{labels:['Combustível','Manutenções','Outros'],datasets:[{data:[totalComb,totalMnt,totalOtros],backgroundColor:['#D97706','#003E7E','#7C3AED']}]},options:{responsive:true,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>' R$ '+c.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}}}}});
+  if(ctxCat) _finCharts[prefix+'categoria']=new Chart(ctxCat,{type:'doughnut',data:{labels:['Combustível','Manutenções','Multas','Outros'],datasets:[{data:[totalComb,totalMnt,totalMultas,totalOtros],backgroundColor:['#D97706','#003E7E','#DC2626','#7C3AED']}]},options:{responsive:true,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>' R$ '+c.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}}}}});
 
   // Gráfico 4: CPL por mês (linha)
   _destroyChart(prefix+'cpl');
   const ctxCpl=document.getElementById(prefix+'chart-cpl');
-  const cplData=evolucao.filter(e=>e.cpl!==null);
   if(ctxCpl) _finCharts[prefix+'cpl']=new Chart(ctxCpl,{type:'line',data:{labels:evolucao.map(e=>e.label),datasets:[{label:'R$/Litro',data:evolucao.map(e=>e.cpl),borderColor:'#D97706',backgroundColor:'rgba(217,119,6,.1)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#D97706'}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'R$ '+v.toFixed(2)}}}}});
 
-  // Ranking
+  // Indicadores: custo médio de manutenção por veículo + R$/L médio da frota
+  const indEl=$(prefix+'indicadores');
+  if(indEl){
+    const custoMedioManutVei=veicFiltrados.length?totalMnt/veicFiltrados.length:0;
+    const litrosTotal=rows.reduce((s,r)=>s+(r.sumLit||0),0);
+    const valorLitrosTotal=rows.reduce((s,r)=>s+(r.cplMedio?r.cplMedio*r.sumLit:0),0);
+    const cplFrota=litrosTotal>0?valorLitrosTotal/litrosTotal:null;
+    indEl.innerHTML=
+      '<div class="fin-kpi" style="background:var(--gray-50);border:1.5px solid var(--gray-200)"><div class="fin-kpi-lbl" style="color:var(--gray-400)"><i class="ti ti-tool"></i> Custo médio de manutenção / veículo</div><div class="fin-kpi-val" style="color:var(--gray-700);font-size:18px">R$ '+custoMedioManutVei.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>'+
+      '<div class="fin-kpi" style="background:#FEF3C7;border:1.5px solid #FDE68A"><div class="fin-kpi-lbl" style="color:#92400E"><i class="ti ti-gas-station"></i> R$/L médio da frota</div><div class="fin-kpi-val" style="color:#D97706;font-size:18px">'+(cplFrota?'R$ '+cplFrota.toFixed(2):'—')+'</div></div>';
+  }
+
+  // Ranking — veículos mais caros
   const rankEl=$(prefix+'rank-list');
   if(rankEl){
     const sorted=[...rows].filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
@@ -3318,6 +3370,22 @@ function _renderFinDash(prefix){
         '<div style="font-family:var(--fh);font-size:13px;font-weight:800;color:'+(i===0?'#D97706':'var(--gray-700)')+';white-space:nowrap;margin-left:10px">R$ '+r.total.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'+
       '</div>'
     ).join(''):'<div style="color:var(--gray-400);font-size:13px;text-align:center;padding:16px">Nenhum custo no período.</div>';
+  }
+
+  // Ranking — veículos com mais multas
+  const rankMultasEl=$(prefix+'rank-multas-list');
+  if(rankMultasEl){
+    const sortedM=[...rows].filter(r=>r.multas.length>0).sort((a,b)=>b.custoMultas-a.custoMultas);
+    const maxM=sortedM[0]?.custoMultas||1;
+    rankMultasEl.innerHTML=sortedM.length?sortedM.map((r,i)=>
+      '<div class="fin-rank-row">'+
+        '<div style="font-family:var(--fh);font-size:11px;font-weight:700;color:'+(i===0?'#DC2626':'var(--gray-400)')+';width:18px">'+(i+1)+'</div>'+
+        '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--gray-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r.v.nome+' <span style="font-weight:400;color:var(--gray-400)">('+r.multas.length+')</span></div>'+
+          '<div class="fin-rank-bar-wrap"><div class="fin-rank-bar" style="width:'+Math.round(r.custoMultas/maxM*100)+'%;background:linear-gradient(90deg,#DC2626,#F87171)"></div></div>'+
+        '</div>'+
+        '<div style="font-family:var(--fh);font-size:13px;font-weight:800;color:#DC2626;white-space:nowrap;margin-left:10px">R$ '+r.custoMultas.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div>'+
+      '</div>'
+    ).join(''):'<div style="color:var(--gray-400);font-size:13px;text-align:center;padding:16px">Nenhuma multa no período.</div>';
   }
 }
 
@@ -3367,7 +3435,10 @@ function renderFinLancAdm(){
   // Reusar renderFinanceiro mas para o painel admin
   const fv=$('fadm-lanc-vei')?.value||'';
   const mes=$('fadm-lanc-mes')?.value||'';
-  const{rows,grandTotal,totalComb,totalMnt,totalOtros}=_calcFinData(fv,mes);
+  const tipoComb=$('fadm-lanc-tcomb')?.value||'';
+  const tipoManut=$('fadm-lanc-tmanut')?.value||'';
+  const catOc=$('fadm-lanc-catoc')?.value||'';
+  const{rows,grandTotal,totalComb,totalMnt,totalMultas,totalOtros,qtdMultas}=_calcFinData(fv,mes,tipoComb,tipoManut,catOc);
   const[ano,mm]=mes?mes.split('-'):[null,null];
   const periodoLabel=mes?new Date(parseInt(ano),parseInt(mm)-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'Todo o período';
   const kpiEl=$('fadm-lanc-kpis');
@@ -3375,20 +3446,27 @@ function renderFinLancAdm(){
     '<div class="fin-kpi" style="background:#FFFBEB;border:1.5px solid #FDE68A"><div class="fin-kpi-lbl" style="color:#92400E">Total — '+periodoLabel+'</div><div class="fin-kpi-val" style="color:#92400E">R$ '+grandTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>'+
     '<div class="fin-kpi" style="background:#FEF3C7;border:1.5px solid #FDE68A"><div class="fin-kpi-lbl" style="color:#92400E">Combustível</div><div class="fin-kpi-val" style="color:#D97706">R$ '+totalComb.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>'+
     '<div class="fin-kpi" style="background:var(--gray-50);border:1.5px solid var(--gray-200)"><div class="fin-kpi-lbl" style="color:var(--gray-400)">Manutenções</div><div class="fin-kpi-val" style="color:var(--gray-700)">R$ '+totalMnt.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>'+
+    '<div class="fin-kpi" style="background:#FEF2F2;border:1.5px solid #FECACA"><div class="fin-kpi-lbl" style="color:#991B1B">Multas ('+qtdMultas+')</div><div class="fin-kpi-val" style="color:#DC2626">R$ '+totalMultas.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>'+
     '<div class="fin-kpi" style="background:#F5F3FF;border:1.5px solid #DDD6FE"><div class="fin-kpi-lbl" style="color:#5B21B6">Outros</div><div class="fin-kpi-val" style="color:#7C3AED">R$ '+totalOtros.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>';
   // Reusar lógica de detalhes do renderFinanceiro para fadm-lanc-det
   const det=$('fadm-lanc-det');
   if(!det)return;
   if(!rows.filter(r=>r.total>0).length){det.innerHTML='<div class="empty"><i class="ti ti-coin-off"></i><h4>Nenhum lançamento no período</h4></div>';return;}
-  // Gerar HTML dos lançamentos (reusar mesma lógica de renderFinanceiro)
-  const tmpVei=$('fin-fvei')?.value;const tmpMes=$('fin-fmes')?.value;
+  // Gerar HTML dos lançamentos (reusar mesma lógica de renderFinanceiro), propagando também os filtros de tipo
+  const tmpVei=$('fin-fvei')?.value,tmpMes=$('fin-fmes')?.value,tmpTc=$('fin-tcomb')?.value,tmpTm=$('fin-tmanut')?.value,tmpCo=$('fin-catoc')?.value;
   if($('fin-fvei')) $('fin-fvei').value=fv;
   if($('fin-fmes')) $('fin-fmes').value=mes;
+  if($('fin-tcomb')) $('fin-tcomb').value=tipoComb;
+  if($('fin-tmanut')) $('fin-tmanut').value=tipoManut;
+  if($('fin-catoc')) $('fin-catoc').value=catOc;
   renderFinanceiro();
   const html=$('fin-detalhes')?.innerHTML||'';
   det.innerHTML=html;
   if($('fin-fvei')) $('fin-fvei').value=tmpVei||'';
   if($('fin-fmes')) $('fin-fmes').value=tmpMes||'';
+  if($('fin-tcomb')) $('fin-tcomb').value=tmpTc||'';
+  if($('fin-tmanut')) $('fin-tmanut').value=tmpTm||'';
+  if($('fin-catoc')) $('fin-catoc').value=tmpCo||'';
 }
 
 function exportarRelatorioFinPDFAdm(){
@@ -3404,6 +3482,64 @@ function exportarRelatorioFinPDFAdm(){
 }
 
 /* EXPORTAR PDF FINANCEIRO */
+function _csvEscape(v){
+  const s=String(v===null||v===undefined?'':v);
+  if(/[;"\n]/.test(s)) return '"'+s.replace(/"/g,'""')+'"';
+  return s;
+}
+
+function _gerarLinhasCSV(fv, mes, tipoComb, tipoManut, catOc){
+  const{rows}=_calcFinData(fv,mes,tipoComb,tipoManut,catOc);
+  const linhas=[['Data','Veículo','Placa','Categoria','Tipo','Descrição/Fornecedor','Litros','R$/L','Valor']];
+  rows.forEach(function(r){
+    r.abasts.forEach(function(a){
+      linhas.push([fmt(a.data),r.v.nome,r.v.placa,'Combustível',FUEL_MAP[a.tipo]||a.tipo||'',a.posto||'',a.litros?String(a.litros).replace('.',','):'',a.cpl?a.cpl.toFixed(2).replace('.',','):'',(a.valor||0).toFixed(2).replace('.',',')]);
+    });
+    r.mnts.forEach(function(m){
+      linhas.push([fmt(m.data),r.v.nome,r.v.placa,'Manutenção',MTYPE_MAP[m.tipo]||m.tipo||'',m.resp||'','','',(m.valor||0).toFixed(2).replace('.',',')]);
+    });
+    r.multas.forEach(function(o){
+      linhas.push([fmt(o.data),r.v.nome,r.v.placa,'Multa','Multa de trânsito',o.desc||'','','',(o.valor||0).toFixed(2).replace('.',',')]);
+    });
+    r.outros.forEach(function(o){
+      linhas.push([fmt(o.data),r.v.nome,r.v.placa,'Outros',OC_CAT[o.cat]||o.cat||'',o.desc||'','','',(o.valor||0).toFixed(2).replace('.',',')]);
+    });
+  });
+  return linhas;
+}
+
+function _baixarCSV(linhas, nomeArquivo){
+  const conteudo=linhas.map(function(l){return l.map(_csvEscape).join(';');}).join('\r\n');
+  const blob=new Blob(['\ufeff'+conteudo],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=nomeArquivo;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+
+function exportarRelatorioFinCSV(){
+  const mes=$('fin-fmes')?.value||'';
+  const fv=$('fin-fvei')?.value||'';
+  const tipoComb=$('fin-tcomb')?.value||'';
+  const tipoManut=$('fin-tmanut')?.value||'';
+  const catOc=$('fin-catoc')?.value||'';
+  const linhas=_gerarLinhasCSV(fv,mes,tipoComb,tipoManut,catOc);
+  if(linhas.length<=1){toast('Nenhum lançamento no período para exportar.','warn');return;}
+  _baixarCSV(linhas,'relatorio_financeiro_'+(mes||'todos')+'.csv');
+}
+
+function exportarRelatorioFinCSVAdm(){
+  const mes=$('fadm-lanc-mes')?.value||'';
+  const fv=$('fadm-lanc-vei')?.value||'';
+  const tipoComb=$('fadm-lanc-tcomb')?.value||'';
+  const tipoManut=$('fadm-lanc-tmanut')?.value||'';
+  const catOc=$('fadm-lanc-catoc')?.value||'';
+  const linhas=_gerarLinhasCSV(fv,mes,tipoComb,tipoManut,catOc);
+  if(linhas.length<=1){toast('Nenhum lançamento no período para exportar.','warn');return;}
+  _baixarCSV(linhas,'relatorio_financeiro_'+(mes||'todos')+'.csv');
+}
+
 function exportarRelatorioFinPDF(){
   const mes=$('fin-fmes')?.value;
   const fv=$('fin-fvei')?.value;
@@ -3747,6 +3883,7 @@ async function delAbastecimento(vid,idx){
 }
 
 const OC_CAT={pedagio:'Pedágio',estacionamento:'Estacionamento',multa:'Multa de trânsito',documentacao:'Documentação/IPVA',seguro:'Seguro',outros:'Outros'};
+const FUEL_MAP={gasolina:'Gasolina',etanol:'Etanol',diesel:'Diesel',gnv:'GNV'};
 
 function abrirOutroCusto(vid){
   const s=$('oc-vei');

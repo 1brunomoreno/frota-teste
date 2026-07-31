@@ -1747,7 +1747,15 @@ function buscarCK(){
   if(nome.length<2){el.innerHTML='<div class="empty"><i class="ti ti-steering-wheel"></i><h4>Digite seu nome para buscar</h4></div>';return}
   let lista=reservas.filter(r=>r.status==='aprovado'&&r.responsavel.toLowerCase().includes(nome));
   if(vf)lista=lista.filter(r=>r.veiculo_id==vf);
-  if(!lista.length){el.innerHTML='<div class="empty"><i class="ti ti-search-off"></i><h4>Nenhuma reserva aprovada encontrada</h4><p>Verifique com o administrador</p></div>';return}
+  // Mostra apenas a reserva do dia de hoje ou uma viagem já em andamento (saída
+  // registrada mas retorno ainda não) — evita que o usuário confunda e faça o
+  // checklist de uma reserva aprovada para outra data.
+  lista=lista.filter(r=>{
+    const emViagem = r.checklist?.saida_hora && !r.checklist?.retorno_hora;
+    const dentroDoPeriodo = r.data_saida<=TODAY && r.data_retorno>=TODAY;
+    return emViagem || dentroDoPeriodo;
+  });
+  if(!lista.length){el.innerHTML='<div class="empty"><i class="ti ti-search-off"></i><h4>Nenhuma reserva de hoje encontrada</h4><p>Verifique se a reserva foi aprovada para a data de hoje</p></div>';return}
   el.innerHTML=lista.map(r=>ckCard(r)).join('');
 }
 function ckCard(r){

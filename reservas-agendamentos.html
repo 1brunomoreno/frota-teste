@@ -636,7 +636,8 @@ tr:hover td{background:var(--gray-50)}
     </div>
     <!-- ADMIN NAV (visível só com admin logado) -->
     <nav class="admin-topnav" id="admin-topnav">
-      <div class="atnav on" id="atnav-aprov" onclick="aTab('aprov')"><i class="ti ti-check"></i> Aprovações</div>
+      <div class="atnav on" id="atnav-inicio" onclick="aTab('inicio')"><i class="ti ti-home"></i> Início</div>
+      <div class="atnav" id="atnav-aprov" onclick="aTab('aprov')"><i class="ti ti-check"></i> Aprovações</div>
       <div class="atnav" id="atnav-reservas" onclick="aTab('reservas')"><i class="ti ti-list"></i> Reservas</div>
       <div class="atnav" id="atnav-veiculos" onclick="aTab('veiculos')"><i class="ti ti-car"></i> Veículos</div>
       <div class="atnav" id="atnav-relatorio" onclick="aTab('relatorio')"><i class="ti ti-chart-bar"></i> Relatórios</div>
@@ -809,7 +810,8 @@ tr:hover td{background:var(--gray-50)}
     <div class="admin-panel" id="admin-panel" style="display:none">
       <div id="admin-tabs-wrap" style="display:none">
         <div class="admin-tabs">
-          <div class="atab on" id="atb-aprov" onclick="aTab('aprov')"><i class="ti ti-check"></i> Aprovações</div>
+          <div class="atab on" id="atb-inicio" onclick="aTab('inicio')"><i class="ti ti-home"></i> Início</div>
+          <div class="atab" id="atb-aprov" onclick="aTab('aprov')"><i class="ti ti-check"></i> Aprovações</div>
           <div class="atab" id="atb-reservas" onclick="aTab('reservas')"><i class="ti ti-list"></i> Reservas</div>
           <div class="atab" id="atb-veiculos" onclick="aTab('veiculos')"><i class="ti ti-car"></i> Veículos</div>
           <div class="atab" id="atb-relatorio" onclick="aTab('relatorio')"><i class="ti ti-chart-bar"></i> Relatórios</div>
@@ -824,7 +826,7 @@ tr:hover td{background:var(--gray-50)}
           <div class="atab" id="atb-financeiro" onclick="aTab('financeiro')"><i class="ti ti-coin"></i> Financeiro</div>
           <div class="atab" id="atb-senha" onclick="aTab('senha')" style="display:none"><i class="ti ti-key"></i> Senha</div>
         </div>
-        <div class="admin-pane on" id="ap-aprov"></div>
+        <div class="admin-pane" id="ap-aprov"></div>
         <div class="admin-pane" id="ap-reservas">
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select class="fi" style="flex:1;min-width:120px;font-size:12px" id="af-vei" onchange="renderTodasRes()"><option value="">Todos veículos</option></select>
@@ -1333,7 +1335,7 @@ const L2='/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbn
 <script>
 
 /* STATE */
-let SB,veiculos=[],reservas=[],cpfs=[],currentUser=null,adminLogado=false,currentAdminTab='aprov';
+let SB,veiculos=[],reservas=[],cpfs=[],currentUser=null,adminLogado=false,currentAdminTab='inicio';
 let calY=new Date().getFullYear(),calM=new Date().getMonth();
 const TODAY=new Date().toISOString().split('T')[0];
 const NOW=new Date().toTimeString().slice(0,5);
@@ -1394,7 +1396,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
       // Restaurar admin se estava ativo
       if(localStorage.getItem('frota_admin')==='1'){
         adminLogado=true;
-        $('admin-panel').style.display='block';
+        $('admin-panel').style.display = (currentAdminTab==='inicio') ? 'none' : 'block';
         $('admin-tabs-wrap').style.display='block';
         $('admin-topnav').classList.add('on');
         $('admin-btn').classList.add('admin-active');
@@ -1468,7 +1470,7 @@ function aplicarSessao(found){
   if(found.is_admin){
     adminLogado=true;
     localStorage.setItem('frota_admin','1');
-    $('admin-panel').style.display='block';
+    $('admin-panel').style.display = (currentAdminTab==='inicio') ? 'none' : 'block';
     $('admin-tabs-wrap').style.display='block';
     $('admin-topnav').classList.add('on');
     $('admin-btn').classList.add('admin-active');
@@ -1968,7 +1970,7 @@ async function checkPwd(){
     renderAprov();initAdmFilters();renderCkAdm();renderCPFs();
     await loadLavagens();renderLavAdm();initLavSec();
     initSenhaTab();
-    aTab('aprov');
+    aTab('inicio');
     toast('Modo administrador ativado.','ok');
     // Scroll suave até painel
     setTimeout(()=>$('admin-panel').scrollIntoView({behavior:'smooth',block:'start'}),100);
@@ -1978,12 +1980,16 @@ function fecharAdmin(){adminLogado=false;localStorage.removeItem('frota_admin');
 function aTab(n){
   currentAdminTab=n;
   atualizarModoAdmin();
-  ['aprov','reservas','veiculos','relatorio','checklist','cpfs','lavagem','depto','senha','dashboard','avisos','manutencao','custos','financeiro'].forEach(x=>{
+  ['inicio','aprov','reservas','veiculos','relatorio','checklist','cpfs','lavagem','depto','senha','dashboard','avisos','manutencao','custos','financeiro'].forEach(x=>{
     $('atb-'+x)?.classList.toggle('on',x===n);
     $('ap-'+x)?.classList.toggle('on',x===n);
     $('atnav-'+x)?.classList.toggle('on',x===n);
   });
+  // "Início" não tem painel próprio dentro do admin-panel — ele reaproveita a área
+  // pessoal do motorista (hero, status, agenda, minhas reservas, checklist, lavagem)
+  $('admin-panel').style.display = (n==='inicio') ? 'none' : 'block';
   initLavSec();
+  if(n==='inicio')renderAll();
   if(n==='reservas')renderTodasRes();
   if(n==='veiculos')renderVeiculosAdm();
   if(n==='relatorio'){initRelFil();renderRel();}
@@ -2003,7 +2009,7 @@ function aTab(n){
    escondendo a área pessoal do motorista (banner, status, agenda, checklist).
    Ao sair do modo admin, a área pessoal volta a aparecer normalmente. */
 function atualizarModoAdmin(){
-  const modoAdmin = adminLogado;
+  const modoAdmin = adminLogado && currentAdminTab!=='inicio';
   ['hero-sec','status-sec','cal-sec','form-res','ck-sec'].forEach(id=>{
     const el=$(id);
     if(el) el.style.display = modoAdmin ? 'none' : '';
@@ -2656,7 +2662,7 @@ function updateVeiculoStatus(){
 function renderMinhasRes(){
   const sec=$('minhas-res-sec');
   const el=$('minhas-res-list');
-  if(adminLogado){if(sec)sec.style.display='none';return;}
+  if(adminLogado && currentAdminTab!=='inicio'){if(sec)sec.style.display='none';return;}
   if(!currentUser||!el){if(sec)sec.style.display='none';return;}
   sec.style.display='block';
   const fil=$('my-res-fil')?.value||'';
@@ -2776,7 +2782,7 @@ function initLavSec(){
   // Quando o admin está navegando pelas abas do painel, o formulário de agendamento
   // de lavagem só aparece dentro da própria aba "Lavagens" — evita empilhar o
   // formulário acima do conteúdo de outras abas (Reservas, Veículos, etc.)
-  const mostrar = elegivel && (!isAdmUser || currentAdminTab==='lavagem');
+  const mostrar = elegivel && (!isAdmUser || currentAdminTab==='lavagem' || currentAdminTab==='inicio');
   $('lav-sec').style.display = mostrar ? 'block' : 'none';
   if(elegivel){
     const s = $('lv-vei');

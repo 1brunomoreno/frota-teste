@@ -1333,7 +1333,7 @@ const L2='/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbn
 <script>
 
 /* STATE */
-let SB,veiculos=[],reservas=[],cpfs=[],currentUser=null,adminLogado=false;
+let SB,veiculos=[],reservas=[],cpfs=[],currentUser=null,adminLogado=false,currentAdminTab='aprov';
 let calY=new Date().getFullYear(),calM=new Date().getMonth();
 const TODAY=new Date().toISOString().split('T')[0];
 const NOW=new Date().toTimeString().slice(0,5);
@@ -1399,6 +1399,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
         $('admin-topnav').classList.add('on');
         $('admin-btn').classList.add('admin-active');
         $('admin-lbl').textContent='Admin ativo';
+        atualizarModoAdmin();
         renderAprov();initAdmFilters();renderCkAdm();renderCPFs();
         loadLavagens().then(()=>{renderLavAdm();initLavSec();});
         initSenhaTab();
@@ -1472,6 +1473,7 @@ function aplicarSessao(found){
     $('admin-topnav').classList.add('on');
     $('admin-btn').classList.add('admin-active');
     $('admin-lbl').textContent='Admin ativo';
+    atualizarModoAdmin();
     renderAprov();initAdmFilters();renderCkAdm();renderCPFs();
     loadLavagens().then(()=>{renderLavAdm();initLavSec();});
     initSenhaTab();
@@ -1559,7 +1561,7 @@ function renderVgrid(){
 }
 
 /* RESERVA FORM */
-function renderRvVeiculos(){$('rv-vei').innerHTML='<option value="" selected disabled>Selecione o veículo</option>'+veiculos.filter(v=>v.status!=='manutencao').map(v=>`<option value="${v.id}">${v.nome} (${v.placa})</option>`).join('');}
+function renderRvVeiculos(){const sel=$('rv-vei');const valorAtual=sel.value;sel.innerHTML='<option value="" selected disabled>Selecione o veículo</option>'+veiculos.filter(v=>v.status!=='manutencao').map(v=>`<option value="${v.id}">${v.nome} (${v.placa})</option>`).join('');if(valorAtual&&[...sel.options].some(o=>o.value===valorAtual))sel.value=valorAtual;}
 function limparRv(){['rv-dep','rv-tel','rv-dst','rv-obs'].forEach(id=>$(id).value='');$('rv-vei').value='';$('rv-data').value=TODAY;$('rv-hora-saida').value=NOW;$('rv-hora-ret').value=NOW;const m=$('rv-conflict-msg');if(m){m.style.display='none';}const r=$('rv-rodizio-msg');if(r){r.style.display='none';}const b=$('rv-submit-btn');if(b){b.disabled=false;b.style.opacity='';}const st=$('rv-vei-status');if(st){st.style.display='none';}}
 
 /* Mapa de rodízio: placa (últimos dígitos ou nome do veículo) → dia da semana (0=Dom,1=Seg,2=Ter,3=Qua,4=Qui,5=Sex,6=Sáb) */
@@ -1972,13 +1974,16 @@ async function checkPwd(){
     setTimeout(()=>$('admin-panel').scrollIntoView({behavior:'smooth',block:'start'}),100);
   }else{$('admin-msg').textContent='Senha incorreta.';$('admin-msg').style.display='block';$('admin-pwd').value='';}
 }
-function fecharAdmin(){adminLogado=false;localStorage.removeItem('frota_admin');$('admin-panel').style.display='none';$('admin-topnav').classList.remove('on');$('admin-btn').classList.remove('admin-active');$('admin-lbl').textContent='Admin';}
+function fecharAdmin(){adminLogado=false;localStorage.removeItem('frota_admin');$('admin-panel').style.display='none';$('admin-topnav').classList.remove('on');$('admin-btn').classList.remove('admin-active');$('admin-lbl').textContent='Admin';initLavSec();atualizarModoAdmin();}
 function aTab(n){
+  currentAdminTab=n;
+  atualizarModoAdmin();
   ['aprov','reservas','veiculos','relatorio','checklist','cpfs','lavagem','depto','senha','dashboard','avisos','manutencao','custos','financeiro'].forEach(x=>{
     $('atb-'+x)?.classList.toggle('on',x===n);
     $('ap-'+x)?.classList.toggle('on',x===n);
     $('atnav-'+x)?.classList.toggle('on',x===n);
   });
+  initLavSec();
   if(n==='reservas')renderTodasRes();
   if(n==='veiculos')renderVeiculosAdm();
   if(n==='relatorio'){initRelFil();renderRel();}
@@ -1992,6 +1997,18 @@ function aTab(n){
   if(n==='manutencao'){initManutTab();renderManutencaoAdm();}
   if(n==='custos'){initCustosTab();renderCustos();}
   if(n==='financeiro'){switchFinAdmTab('dash');}
+}
+
+/* Mostra apenas o painel do admin (abas) quando o modo admin está ativo,
+   escondendo a área pessoal do motorista (banner, status, agenda, checklist).
+   Ao sair do modo admin, a área pessoal volta a aparecer normalmente. */
+function atualizarModoAdmin(){
+  const modoAdmin = adminLogado;
+  ['hero-sec','status-sec','cal-sec','form-res','ck-sec'].forEach(id=>{
+    const el=$(id);
+    if(el) el.style.display = modoAdmin ? 'none' : '';
+  });
+  renderMinhasRes();
 }
 
 /* SENHA ADMIN — só acessível ao super admin */
@@ -2639,6 +2656,7 @@ function updateVeiculoStatus(){
 function renderMinhasRes(){
   const sec=$('minhas-res-sec');
   const el=$('minhas-res-list');
+  if(adminLogado){if(sec)sec.style.display='none';return;}
   if(!currentUser||!el){if(sec)sec.style.display='none';return;}
   sec.style.display='block';
   const fil=$('my-res-fil')?.value||'';
@@ -2754,8 +2772,13 @@ async function loadDataFull(){
 function initLavSec(){
   const isFac = currentUser && cleanCPF(currentUser.cpf) === cleanCPF(CPF_FACILITIES);
   const isAdmUser = adminLogado;
-  $('lav-sec').style.display = (isFac || isAdmUser) ? 'block' : 'none';
-  if(isFac || isAdmUser){
+  const elegivel = isFac || isAdmUser;
+  // Quando o admin está navegando pelas abas do painel, o formulário de agendamento
+  // de lavagem só aparece dentro da própria aba "Lavagens" — evita empilhar o
+  // formulário acima do conteúdo de outras abas (Reservas, Veículos, etc.)
+  const mostrar = elegivel && (!isAdmUser || currentAdminTab==='lavagem');
+  $('lav-sec').style.display = mostrar ? 'block' : 'none';
+  if(elegivel){
     const s = $('lv-vei');
     if(s && s.options.length <= 1){
       s.innerHTML = '<option value="">Selecione o veículo</option>';

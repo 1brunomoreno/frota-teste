@@ -547,6 +547,7 @@ tr:hover td{background:var(--gray-50)}
       <div id="fin-dash-sec">
         <div class="fin-chart-grid">
           <div class="fin-chart-box full"><div class="fin-chart-title"><i class="ti ti-trending-up"></i> Evolução de Custos por Mês</div><canvas id="fin-chart-evolucao" height="90"></canvas></div>
+          <div class="fin-chart-box full"><div class="fin-chart-title"><i class="ti ti-calendar-stats"></i> Comparativo Ano a Ano</div><canvas id="fin-chart-anoano" height="90"></canvas></div>
           <div class="fin-chart-box"><div class="fin-chart-title"><i class="ti ti-chart-pie"></i> Custo por Veículo</div><canvas id="fin-chart-veiculo" height="200"></canvas></div>
           <div class="fin-chart-box"><div class="fin-chart-title"><i class="ti ti-chart-donut"></i> Divisão por Categoria</div><canvas id="fin-chart-categoria" height="200"></canvas></div>
         </div>
@@ -979,6 +980,7 @@ tr:hover td{background:var(--gray-50)}
             <div class="fin-kpi-grid" id="fadm-kpis"></div>
             <div class="fin-chart-grid">
               <div class="fin-chart-box full"><div class="fin-chart-title"><i class="ti ti-trending-up"></i> Evolução de Custos por Mês</div><canvas id="fadm-chart-evolucao" height="90"></canvas></div>
+              <div class="fin-chart-box full"><div class="fin-chart-title"><i class="ti ti-calendar-stats"></i> Comparativo Ano a Ano</div><canvas id="fadm-chart-anoano" height="90"></canvas></div>
               <div class="fin-chart-box"><div class="fin-chart-title"><i class="ti ti-chart-pie"></i> Custo por Veículo</div><canvas id="fadm-chart-veiculo" height="200"></canvas></div>
               <div class="fin-chart-box"><div class="fin-chart-title"><i class="ti ti-chart-donut"></i> Divisão por Categoria</div><canvas id="fadm-chart-categoria" height="200"></canvas></div>
             </div>
@@ -1020,6 +1022,14 @@ tr:hover td{background:var(--gray-50)}
 
         <div class="admin-pane" id="ap-senha">
           <div style="max-width:420px;margin:0 auto;padding:8px 0">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:14px 16px;background:var(--gray-50);border-radius:var(--r12);border:1px solid var(--gray-200)">
+              <i class="ti ti-database-export" style="font-size:22px;color:var(--gray-500);flex-shrink:0"></i>
+              <div>
+                <div style="font-family:var(--fh);font-size:13px;font-weight:600;color:var(--gray-700)">Backup completo do sistema</div>
+                <div style="font-size:12px;color:var(--gray-500);margin-top:2px">Baixa um arquivo JSON com todos os dados atuais (veículos, reservas, CPFs, lavagens, avisos)</div>
+              </div>
+            </div>
+            <button class="btn btn-ghost" style="width:100%;margin-bottom:18px" onclick="baixarBackupCompleto()"><i class="ti ti-download"></i> Baixar backup (.json)</button>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;padding:14px 16px;background:var(--blue-xl);border-radius:var(--r12);border:1px solid var(--blue3)">
               <i class="ti ti-shield-lock" style="font-size:22px;color:var(--blue3);flex-shrink:0"></i>
               <div>
@@ -1078,6 +1088,7 @@ tr:hover td{background:var(--gray-50)}
   <div class="g2"><div class="fg"><label class="flbl">Hora saída</label><input type="time" class="fi" id="er-hsai"></div><div class="fg"><label class="flbl">Hora retorno</label><input type="time" class="fi" id="er-hret"></div></div>
   <div class="fg"><label class="flbl">Destino</label><input class="fi" id="er-dst"></div>
   <div class="fg"><label class="flbl">Feedback / Justificativa</label><textarea class="fi" id="er-feed" rows="2" style="resize:vertical"></textarea></div>
+  <div id="er-historico" style="margin-top:4px"></div>
   <input type="hidden" id="er-id">
 </div>
 <div class="mftr"><button class="btn btn-ghost" onclick="cov('ov-er')">Cancelar</button><button class="btn btn-p" onclick="salvarEditRes()"><i class="ti ti-check"></i> Salvar</button></div></div></div>
@@ -1342,6 +1353,19 @@ const NOW=new Date().toTimeString().slice(0,5);
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DOWS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const $=id=>document.getElementById(id);
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+// Trilha de auditoria — registra quem aprovou/negou/editou uma reserva e quando.
+// Mantém só os últimos 30 eventos por reserva pra não crescer sem limite.
+function _addHistorico(historicoAtual,acao,detalhes){
+  const hist=Array.isArray(historicoAtual)?[...historicoAtual]:[];
+  hist.push({acao,por:currentUser?.nome||'Administrador',em:new Date().toISOString(),detalhes:detalhes||''});
+  return hist.slice(-30);
+}
+// Mensagem amigável quando o banco recusa por conflito de horário (constraint no_overlap_aprovado)
+function _msgErroReserva(error){
+  if(error?.code==='23P01')return'Esse veículo já tem outra reserva aprovada nesse horário. Verifique antes de continuar.';
+  return'Erro: '+(error?.message||'desconhecido');
+}
 
 /* UTILS */
 function setLogos(){
@@ -1735,10 +1759,10 @@ function showCalDay(ds){
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font-family:var(--fh);font-weight:600;font-size:13px">${v?.nome||'?'} <span style="font-family:monospace;font-size:10px;color:var(--gray-400)">${v?.placa||''}</span></span>${rbadge(r.status)}</div>
       <div style="font-size:12px;color:var(--gray-500);display:flex;flex-direction:column;gap:2px">
         ${r.hora_saida?`<div><strong style="color:var(--gray-700)">Horário:</strong> ${r.hora_saida} → ${r.hora_retorno}</div>`:''}
-        <div><strong style="color:var(--gray-700)">Resp.:</strong> ${r.responsavel} — ${r.departamento}</div>
-        <div><strong style="color:var(--gray-700)">Destino:</strong> ${r.destino}</div>
+        <div><strong style="color:var(--gray-700)">Resp.:</strong> ${esc(r.responsavel)} — ${esc(r.departamento)}</div>
+        <div><strong style="color:var(--gray-700)">Destino:</strong> ${esc(r.destino)}</div>
       </div>
-      ${r.feedback?`<div style="background:var(--blue-xl);border-radius:var(--r6);padding:7px 10px;margin-top:8px;font-size:12px;color:var(--blue3)"><strong>Feedback:</strong> ${r.feedback}</div>`:''}
+      ${r.feedback?`<div style="background:var(--blue-xl);border-radius:var(--r6);padding:7px 10px;margin-top:8px;font-size:12px;color:var(--blue3)"><strong>Feedback:</strong> ${esc(r.feedback)}</div>`:''}
     </div>`;
   }).join('');
 }
@@ -1773,14 +1797,14 @@ function ckCard(r){
   let body='';
   if(ck.saida_hora){
     body+=`<div class="ck-section"><i class="ti ti-logout"></i>Saída</div><div class="ck-info-grid"><div class="ck-field"><span class="ck-lbl">Data/Hora</span><span class="ck-val">${fmt(ck.saida_data)} ${ck.saida_hora}</span></div><div class="ck-field"><span class="ck-lbl">Km saída</span><span class="ck-val">${(ck.saida_km||0).toLocaleString('pt-BR')}</span></div></div>`;
-    if(ck.saida_cond==='avaria'&&ck.saida_obs)body+=`<div class="ck-avaria"><i class="ti ti-alert-triangle" style="flex-shrink:0"></i><span><strong>Avaria na saída:</strong> ${ck.saida_obs}</span></div>`;
+    if(ck.saida_cond==='avaria'&&ck.saida_obs)body+=`<div class="ck-avaria"><i class="ti ti-alert-triangle" style="flex-shrink:0"></i><span><strong>Avaria na saída:</strong> ${esc(ck.saida_obs)}</span></div>`;
   }
   if(ck.retorno_hora){
     const kmR=ck.retorno_km&&ck.saida_km?ck.retorno_km-ck.saida_km:null;
     body+=`<div class="ck-divider"></div><div class="ck-section"><i class="ti ti-login"></i>Retorno</div><div class="ck-info-grid"><div class="ck-field"><span class="ck-lbl">Data/Hora</span><span class="ck-val">${fmt(ck.retorno_data)} ${ck.retorno_hora}</span></div><div class="ck-field"><span class="ck-lbl">Km retorno</span><span class="ck-val">${(ck.retorno_km||0).toLocaleString('pt-BR')}</span></div></div>`;
     if(ck.retorno_cond&&!ck.retorno_cond.includes('ok')||ck.retorno_cond?.includes('avaria')||ck.retorno_cond?.includes('abastecimento')){
       const conds=ck.retorno_cond||'';
-      if(conds.includes('avaria')) body+=`<div class="ck-avaria"><i class="ti ti-alert-triangle" style="flex-shrink:0"></i><span><strong>Avaria no retorno:</strong> ${ck.retorno_obs||'—'}</span></div>`;
+      if(conds.includes('avaria')) body+=`<div class="ck-avaria"><i class="ti ti-alert-triangle" style="flex-shrink:0"></i><span><strong>Avaria no retorno:</strong> ${esc(ck.retorno_obs||'—')}</span></div>`;
       if(conds.includes('abastecimento')) body+=`<div class="ck-avaria" style="background:#FEF3C7;border-color:#F59E0B;color:#92400E"><i class="ti ti-gas-station" style="flex-shrink:0"></i><span><strong>Necessita abastecimento</strong></span></div>`;
     }
     if(kmR!==null)body+=`<div><span style="font-size:12px;color:var(--gray-400)">Total percorrido:</span> <span class="ck-km-badge"><i class="ti ti-road"></i> ${kmR.toLocaleString('pt-BR')} km</span></div>`;
@@ -1789,7 +1813,7 @@ function ckCard(r){
   if(!ck.saida_hora)btns=`<button class="ck-big-btn ck-saida-btn" onclick="abrirSaida(${r.id})"><i class="ti ti-logout"></i> Registrar Saída</button>`;
   else if(!ck.retorno_hora)btns=`<button class="ck-big-btn ck-retorno-btn" onclick="abrirRetorno(${r.id})"><i class="ti ti-login"></i> Registrar Retorno</button>`;
   else btns=`<div style="text-align:center;padding:6px;font-size:13px;color:var(--green2);font-weight:600;font-family:var(--fh)"><i class="ti ti-circle-check"></i> Viagem concluída!</div>`;
-  return`<div class="ck-card"><div class="ck-card-top"><div><div class="ck-card-name"><i class="ti ti-car" style="color:var(--blue)"></i> ${v?.nome||'?'} <span style="font-family:monospace;font-size:10px;color:var(--gray-400)">${v?.placa||''}</span></div><div class="ck-card-sub">${fmt(r.data_saida)} ${r.hora_saida?r.hora_saida+' → '+r.hora_retorno:''} · ${r.destino}</div></div><span class="ck-status ${stCls}">${stLbl}</span></div>${body||btns?`<div class="ck-body">${body}${body&&btns?'<div class="ck-divider"></div>':''}<div class="ck-btn-row">${btns}</div></div>`:''}</div>`;
+  return`<div class="ck-card"><div class="ck-card-top"><div><div class="ck-card-name"><i class="ti ti-car" style="color:var(--blue)"></i> ${v?.nome||'?'} <span style="font-family:monospace;font-size:10px;color:var(--gray-400)">${v?.placa||''}</span></div><div class="ck-card-sub">${fmt(r.data_saida)} ${r.hora_saida?r.hora_saida+' → '+r.hora_retorno:''} · ${esc(r.destino)}</div></div><span class="ck-status ${stCls}">${stLbl}</span></div>${body||btns?`<div class="ck-body">${body}${body&&btns?'<div class="ck-divider"></div>':''}<div class="ck-btn-row">${btns}</div></div>`:''}</div>`;
 }
 
 function toggleObsSaida(){
@@ -2091,6 +2115,26 @@ function checkSenhaMatch(){
   }
 }
 
+function baixarBackupCompleto(){
+  const backup={
+    gerado_em:new Date().toISOString(),
+    sistema:'Gestão de Frota Institucional — UniFECAF & Colégio SER',
+    veiculos,
+    reservas,
+    cpfs_autorizados:cpfs.map(c=>({...c})), // sem dados de senha (não há senha nessa tabela)
+    lavagens,
+    avisos
+  };
+  const conteudo=JSON.stringify(backup,null,2);
+  const blob=new Blob([conteudo],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='backup_frota_'+TODAY+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Backup gerado! Guarde este arquivo em local seguro.','ok');
+}
+
 function limparSenhaForm(){
   ['sp-atual','sp-nova','sp-conf'].forEach(id=>{
     const el=$(id); if(el){el.value='';el.type='password';}
@@ -2135,10 +2179,10 @@ function renderAprov(){
     return`<div style="background:var(--gray-50);border-radius:var(--r14);border:1.5px solid var(--gray-200);padding:14px 16px;margin-bottom:11px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px"><div><div style="font-family:var(--fh);font-weight:600;font-size:13px">${v?.nome||'?'} <span style="font-family:monospace;font-size:10px;color:var(--gray-400)">${v?.placa||''}</span></div><div style="font-size:11px;color:var(--gray-400)">${fmt(r.data_saida)} ${r.hora_saida?r.hora_saida+'→'+r.hora_retorno:''} · Solicitado ${fmt(r.criado_em?.split('T')[0])}</div></div>${rbadge(r.status)}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;margin-bottom:10px">
-        <div><span style="color:var(--gray-400)">Resp.:</span> ${r.responsavel}</div>
-        <div><span style="color:var(--gray-400)">Dep.:</span> ${r.departamento}</div>
-        <div style="grid-column:1/-1"><span style="color:var(--gray-400)">Destino:</span> ${r.destino}</div>
-        ${r.observacoes?`<div style="grid-column:1/-1"><span style="color:var(--gray-400)">Obs.:</span> ${r.observacoes}</div>`:''}
+        <div><span style="color:var(--gray-400)">Resp.:</span> ${esc(r.responsavel)}</div>
+        <div><span style="color:var(--gray-400)">Dep.:</span> ${esc(r.departamento)}</div>
+        <div style="grid-column:1/-1"><span style="color:var(--gray-400)">Destino:</span> ${esc(r.destino)}</div>
+        ${r.observacoes?`<div style="grid-column:1/-1"><span style="color:var(--gray-400)">Obs.:</span> ${esc(r.observacoes)}</div>`:''}
       </div>
       <div style="display:flex;gap:7px;justify-content:flex-end;padding-top:9px;border-top:1px solid var(--gray-100);flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="abrirEditRes(${r.id})"><i class="ti ti-edit"></i>Editar</button>
@@ -2154,7 +2198,7 @@ function openAp(id,acao){
   if(_apProcessando)return;
   curApId=id;const r=reservas.find(x=>x.id===id);const v=veiculos.find(x=>x.id===r.veiculo_id);
   $('ap-title').textContent=acao==='aprovar'?'Aprovar reserva':'Negar reserva';
-  $('ap-body').innerHTML=`<div class="alert ${acao==='aprovar'?'a-ok':'a-danger'}" style="margin-bottom:12px"><i class="ti ${acao==='aprovar'?'ti-check':'ti-x'}"></i><div>Você irá <strong>${acao==='aprovar'?'APROVAR':'NEGAR'}</strong> a reserva de <strong>${v?.nome}</strong> por <strong>${r.responsavel}</strong> em ${fmt(r.data_saida)} ${r.hora_saida||''}.</div></div>
+  $('ap-body').innerHTML=`<div class="alert ${acao==='aprovar'?'a-ok':'a-danger'}" style="margin-bottom:12px"><i class="ti ${acao==='aprovar'?'ti-check':'ti-x'}"></i><div>Você irá <strong>${acao==='aprovar'?'APROVAR':'NEGAR'}</strong> a reserva de <strong>${v?.nome}</strong> por <strong>${esc(r.responsavel)}</strong> em ${fmt(r.data_saida)} ${r.hora_saida||''}.</div></div>
   <div class="fg"><label class="flbl">Feedback (visível ao solicitante)</label><textarea class="fi" id="ap-feed" rows="3" style="resize:vertical"></textarea></div>`;
   $('ap-ftr').innerHTML=`<button class="btn btn-ghost" onclick="cov('ov-ap')">Cancelar</button><button class="btn ${acao==='aprovar'?'btn-g':'btn-danger'}" id="ap-confirm-btn" onclick="confAp('${acao}')"><i class="ti ${acao==='aprovar'?'ti-check':'ti-x'}"></i>Confirmar</button>`;
   ov('ov-ap');
@@ -2166,9 +2210,11 @@ async function confAp(acao){
   const btn=$('ap-confirm-btn');
   if(btn){btn.disabled=true;btn.style.opacity='0.5';}
   const st=acao==='aprovar'?'aprovado':'negado',feed=$('ap-feed').value.trim();
-  const{error}=await SB.from('reservas').update({status:st,feedback:feed}).eq('id',curApId);
+  const resAtual=reservas.find(x=>x.id===curApId);
+  const novoHistorico=_addHistorico(resAtual?.historico,st,feed);
+  const{error}=await SB.from('reservas').update({status:st,feedback:feed,historico:novoHistorico}).eq('id',curApId);
   if(error){
-    toast('Erro: '+(error.message),'err');
+    toast(_msgErroReserva(error),'err',7000);
     _apProcessando=false;
     if(btn){btn.disabled=false;btn.style.opacity='';}
     return;
@@ -2270,12 +2316,21 @@ function abrirEditRes(id){
   $('er-st').value=r.status;$('er-dep').value=r.departamento;$('er-resp').value=r.responsavel;
   $('er-data').value=r.data_saida;$('er-hsai').value=r.hora_saida||'';$('er-hret').value=r.hora_retorno||'';
   $('er-dst').value=r.destino;$('er-feed').value=r.feedback||'';
+  const hist=Array.isArray(r.historico)?r.historico:[];
+  const histEl=$('er-historico');
+  if(histEl){
+    histEl.innerHTML=hist.length?'<div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Histórico</div><div style="max-height:120px;overflow-y:auto;background:var(--gray-50);border-radius:var(--r8);border:1px solid var(--gray-200);padding:8px 10px">'+hist.slice().reverse().map(h=>`<div style="font-size:11px;color:var(--gray-500);padding:3px 0;border-bottom:1px solid var(--gray-200)"><strong style="color:var(--gray-700)">${esc(h.acao)}</strong> por ${esc(h.por)} · ${new Date(h.em).toLocaleString('pt-BR')}${h.detalhes?' · '+esc(h.detalhes):''}</div>`).join('')+'</div>':'';
+  }
   cov('ov-ap');ov('ov-er');
 }
 async function salvarEditRes(){
   const id=parseInt($('er-id').value);
-  const{error}=await SB.from('reservas').update({veiculo_id:$('er-vei').value,status:$('er-st').value,departamento:$('er-dep').value.trim(),responsavel:$('er-resp').value.trim(),data_saida:$('er-data').value,data_retorno:$('er-data').value,hora_saida:$('er-hsai').value,hora_retorno:$('er-hret').value,destino:$('er-dst').value.trim(),feedback:$('er-feed').value.trim()}).eq('id',id);
-  if(error){toast('Erro: '+(error.message),'err');return}
+  const resAtual=reservas.find(x=>x.id===id);
+  const novoStatus=$('er-st').value;
+  const mudouStatus=resAtual&&resAtual.status!==novoStatus;
+  const novoHistorico=mudouStatus?_addHistorico(resAtual?.historico,'editado → '+novoStatus,''):(resAtual?.historico||[]);
+  const{error}=await SB.from('reservas').update({veiculo_id:$('er-vei').value,status:novoStatus,departamento:$('er-dep').value.trim(),responsavel:$('er-resp').value.trim(),data_saida:$('er-data').value,data_retorno:$('er-data').value,hora_saida:$('er-hsai').value,hora_retorno:$('er-hret').value,destino:$('er-dst').value.trim(),feedback:$('er-feed').value.trim(),historico:novoHistorico}).eq('id',id);
+  if(error){toast(_msgErroReserva(error),'err',7000);return}
   cov('ov-er');await loadData();renderAprov();renderAll();toast('Reserva atualizada!','ok');
 }
 
@@ -2286,7 +2341,7 @@ function renderTodasRes(){
   let list=[...reservas];if(fv)list=list.filter(r=>r.veiculo_id==fv);if(fs)list=list.filter(r=>r.status===fs);
   list.sort((a,b)=>b.data_saida.localeCompare(a.data_saida));
   if(!list.length){$('todas-list').innerHTML='<div class="empty"><i class="ti ti-calendar-off"></i><h4>Nenhuma reserva</h4></div>';return}
-  $('todas-list').innerHTML=list.map(r=>{const v=veiculos.find(x=>x.id===r.veiculo_id);return`<div style="background:var(--gray-50);border-radius:var(--r10);border:1px solid var(--gray-200);padding:11px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px"><div><div style="font-family:var(--fh);font-weight:600;font-size:13px">${v?.nome||'?'}</div><div style="font-size:11px;color:var(--gray-400)">${fmt(r.data_saida)} ${r.hora_saida?r.hora_saida+'→'+r.hora_retorno:''}</div></div>${rbadge(r.status)}</div><div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">${r.responsavel} — ${r.departamento}<br>${r.destino}${r.feedback?`<br><em style="color:var(--blue3)">Feedback: ${r.feedback}</em>`:''}</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="abrirEditRes(${r.id})"><i class="ti ti-edit"></i>Editar</button><button class="btn btn-danger btn-sm" onclick="delRes(${r.id})"><i class="ti ti-trash"></i>Remover</button></div></div>`;}).join('');
+  $('todas-list').innerHTML=list.map(r=>{const v=veiculos.find(x=>x.id===r.veiculo_id);return`<div style="background:var(--gray-50);border-radius:var(--r10);border:1px solid var(--gray-200);padding:11px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px"><div><div style="font-family:var(--fh);font-weight:600;font-size:13px">${v?.nome||'?'}</div><div style="font-size:11px;color:var(--gray-400)">${fmt(r.data_saida)} ${r.hora_saida?r.hora_saida+'→'+r.hora_retorno:''}</div></div>${rbadge(r.status)}</div><div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">${esc(r.responsavel)} — ${esc(r.departamento)}<br>${esc(r.destino)}${r.feedback?`<br><em style="color:var(--blue3)">Feedback: ${esc(r.feedback)}</em>`:''}</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="abrirEditRes(${r.id})"><i class="ti ti-edit"></i>Editar</button><button class="btn btn-danger btn-sm" onclick="delRes(${r.id})"><i class="ti ti-trash"></i>Remover</button></div></div>`;}).join('');
 }
 async function delRes(id){if(!confirm('Remover esta reserva?'))return;const{error}=await SB.from('reservas').delete().eq('id',id);if(error){toast('Erro','err');return}await loadData();renderTodasRes();toast('Removida.','info');}
 
@@ -2403,7 +2458,7 @@ function renderRel(){
       const temAvaria=(ck.saida_cond==='avaria'&&ck.saida_obs)||(ck.retorno_cond&&(ck.retorno_cond.includes('avaria')||ck.retorno_cond.includes('abastecimento'))&&ck.retorno_obs);
       return`<div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--r10);padding:12px 14px;margin-bottom:8px${temAvaria?';border-left:3px solid var(--danger)':''}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div style="font-weight:600;font-size:13px;font-family:var(--fh)">${r.responsavel}</div>
+          <div style="font-weight:600;font-size:13px;font-family:var(--fh)">${esc(r.responsavel)}</div>
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:11px;color:var(--gray-400)">${fmt(r.data_saida)}</span>
             <button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:10px;color:#7C3AED;border-color:#DDD6FE" onclick="abrirCorrecaoCkKm(${r.id})" title="Corrigir km"><i class="ti ti-pencil" style="font-size:11px"></i> km</button>
@@ -2414,8 +2469,8 @@ function renderRel(){
           <div><span style="color:var(--gray-400)">Retorno:</span> ${ck.retorno_hora||'—'} · ${ck.retorno_km?(ck.retorno_km).toLocaleString('pt-BR')+' km':'—'}</div>
           <div><span style="color:var(--gray-400)">Percorrido:</span> ${kmR!==null?kmR.toLocaleString('pt-BR')+' km':'—'}</div>
         </div>
-        ${ck.saida_cond==='avaria'&&ck.saida_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-top:6px"><i class="ti ti-alert-triangle"></i> <strong>Avaria na saída:</strong> ${ck.saida_obs}</div>`:''}
-        ${ck.retorno_cond&&(ck.retorno_cond.includes('avaria')||ck.retorno_cond.includes('abastecimento'))&&ck.retorno_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-top:4px"><i class="ti ti-alert-triangle"></i> <strong>${ck.retorno_cond.includes('avaria')?'Avaria no retorno':'Abastecimento'}:</strong> ${ck.retorno_obs}</div>`:''}
+        ${ck.saida_cond==='avaria'&&ck.saida_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-top:6px"><i class="ti ti-alert-triangle"></i> <strong>Avaria na saída:</strong> ${esc(ck.saida_obs)}</div>`:''}
+        ${ck.retorno_cond&&(ck.retorno_cond.includes('avaria')||ck.retorno_cond.includes('abastecimento'))&&ck.retorno_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-top:4px"><i class="ti ti-alert-triangle"></i> <strong>${ck.retorno_cond.includes('avaria')?'Avaria no retorno':'Abastecimento'}:</strong> ${esc(ck.retorno_obs)}</div>`:''}
       </div>`;
     }).join(''):`<div style="font-size:13px;color:var(--gray-400);margin-bottom:14px">Nenhum checklist registrado no período.</div>`}
     <div style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.7px;margin:12px 0 8px">Ocorrências <button class="btn btn-danger btn-sm" onclick="abrirProb('${v.id}')"><i class="ti ti-plus"></i>Registrar</button></div>
@@ -2526,7 +2581,7 @@ function renderCkAdm(){
     return`<div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--r12);padding:13px 15px;margin-bottom:9px${temAvaria?';border-left:3px solid var(--danger)':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div><div style="font-family:var(--fh);font-weight:600;font-size:13px">${v?.nome||'?'} <span style="font-family:monospace;font-size:10px;color:var(--gray-400)">${v?.placa||''}</span></div>
-        <div style="font-size:11px;color:var(--gray-400)">${r.responsavel} · ${fmt(r.data_saida)} ${r.hora_saida||''}</div></div>
+        <div style="font-size:11px;color:var(--gray-400)">${esc(r.responsavel)} · ${fmt(r.data_saida)} ${r.hora_saida||''}</div></div>
         <span class="ck-status ${stCls}">${stLbl}</span>
       </div>
       ${ck.saida_hora?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:12px;padding:8px;background:var(--gray-50);border-radius:var(--r6);margin-bottom:6px">
@@ -2534,8 +2589,8 @@ function renderCkAdm(){
         <div><span style="color:var(--gray-400)">Retorno:</span> ${ck.retorno_hora||'—'} · ${ck.retorno_km?ck.retorno_km.toLocaleString('pt-BR')+' km':'—'}</div>
         ${kmR!==null?`<div style="grid-column:1/-1"><span style="color:var(--gray-400)">Percorrido:</span> <strong>${kmR.toLocaleString('pt-BR')} km</strong></div>`:''}
       </div>`:''}
-      ${ck.saida_cond==='avaria'&&ck.saida_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-bottom:4px"><i class="ti ti-alert-triangle"></i> <strong>Avaria na saída:</strong> ${ck.saida_obs}</div>`:''}
-      ${ck.retorno_cond&&(ck.retorno_cond.includes('avaria')||ck.retorno_cond.includes('abastecimento'))&&ck.retorno_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger)"><i class="ti ti-alert-triangle"></i> <strong>${ck.retorno_cond.includes('avaria')?'Avaria no retorno':'Abastecimento'}:</strong> ${ck.retorno_obs}</div>`:''}
+      ${ck.saida_cond==='avaria'&&ck.saida_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-bottom:4px"><i class="ti ti-alert-triangle"></i> <strong>Avaria na saída:</strong> ${esc(ck.saida_obs)}</div>`:''}
+      ${ck.retorno_cond&&(ck.retorno_cond.includes('avaria')||ck.retorno_cond.includes('abastecimento'))&&ck.retorno_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger)"><i class="ti ti-alert-triangle"></i> <strong>${ck.retorno_cond.includes('avaria')?'Avaria no retorno':'Abastecimento'}:</strong> ${esc(ck.retorno_obs)}</div>`:''}
       ${ck.retorno_hora&&!ck.saida_hora?`<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:6px;padding:7px 10px;font-size:11px;color:#92400E;margin-top:6px;display:flex;justify-content:space-between;align-items:center"><span><i class="ti ti-alert-triangle"></i> <strong>Checklist inconsistente</strong> — retorno sem saída registrada</span><button class="btn btn-danger btn-sm" style="font-size:10px;padding:3px 9px" onclick="resetChecklist(${r.id})"><i class="ti ti-eraser"></i> Resetar</button></div>`:''}
     </div>`;
   }).join('');
@@ -2579,6 +2634,9 @@ async function salvarCPF(){
   const nome=$('cpf-f-nome').value.trim();
   if(!cpfNum||!nome){toast('CPF e nome são obrigatórios.','err');return}
   if(!validCPF(cpfNum)){toast('CPF inválido.','err');return}
+  // Impede cadastrar o mesmo CPF duas vezes (comparando dígitos, ignorando formatação)
+  const duplicado=cpfs.find(c=>cleanCPF(c.cpf)===cleanCPF(cpfNum)&&String(c.id)!==String(id));
+  if(duplicado){toast(`Esse CPF já está cadastrado para "${duplicado.nome}".`,'err');return}
   const isSuperAdmin=currentUser&&cleanCPF(currentUser.cpf)===SUPER_ADMIN_CPF;
   const isSelf=cleanCPF(cpfNum)===SUPER_ADMIN_CPF;
   // Dados base — sem is_admin por padrão
@@ -2692,11 +2750,11 @@ function renderMinhasRes(){
       <div class="my-res-card-top">
         <div>
           <div class="my-res-vname"><i class="ti ti-car" style="color:var(--blue3)"></i> ${v?.nome||'?'} <span style="font-family:monospace;font-size:10px;color:var(--gray-400)">${v?.placa||''}</span></div>
-          <div class="my-res-meta">${fmt(r.data_saida)} · ${r.hora_saida||''}→${r.hora_retorno||''} · ${r.destino}</div>
+          <div class="my-res-meta">${fmt(r.data_saida)} · ${r.hora_saida||''}→${r.hora_retorno||''} · ${esc(r.destino)}</div>
         </div>
         <span class="badge ${badgeMap[r.status]||'b-pend'}">${labelMap[r.status]||r.status}</span>
       </div>
-      ${r.feedback?`<div style="font-size:12px;color:var(--gray-500);margin-top:5px;padding:6px 9px;background:var(--gray-50);border-radius:6px"><i class="ti ti-message"></i> ${r.feedback}</div>`:''}
+      ${r.feedback?`<div style="font-size:12px;color:var(--gray-500);margin-top:5px;padding:6px 9px;background:var(--gray-50);border-radius:6px"><i class="ti ti-message"></i> ${esc(r.feedback)}</div>`:''}
       ${canCancel?`<div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn btn-danger btn-sm" onclick="cancelarMinhaRes(${r.id})"><i class="ti ti-x"></i> Cancelar solicitação</button></div>`:''}
     </div>`;
   }).join('');
@@ -2892,7 +2950,7 @@ function renderLavAdm(){
         <span class="lav-badge ${l.status==='confirmado'?'lav-conf':'lav-pend'}">${l.status==='confirmado'?'✅ Confirmado':'⏳ Pendente'}</span>
       </div>
       ${l.status==='pendente'?`<div class="lav-body">
-        ${l.observacoes?`<div style="font-size:12px;color:var(--gray-500);margin-bottom:10px"><i class="ti ti-notes"></i> ${l.observacoes}</div>`:''}
+        ${l.observacoes?`<div style="font-size:12px;color:var(--gray-500);margin-bottom:10px"><i class="ti ti-notes"></i> ${esc(l.observacoes)}</div>`:''}
         <div style="display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap">
           <button class="btn btn-danger btn-sm" onclick="delLavagem(${l.id})"><i class="ti ti-trash"></i>Cancelar</button>
           <button class="btn btn-g btn-sm" onclick="abrirConfLav(${l.id})"><i class="ti ti-check"></i>Confirmar lavagem</button>
@@ -3288,7 +3346,7 @@ function _calcFinData(fv, mes, tipoComb, tipoManut, catOc){
   const de=mes?mes+'-01':null;
   const ate=mes?mes+'-'+new Date(parseInt(ano),parseInt(mm),0).getDate():null;
   const veicFiltrados=fv?veiculos.filter(v=>String(v.id)===fv):veiculos;
-  let grandTotal=0,totalComb=0,totalMnt=0,totalMultas=0,totalOtros=0,qtdMultas=0;
+  let grandTotal=0,totalComb=0,totalMnt=0,totalMultas=0,totalOtros=0,qtdMultas=0,kmRodadoTotal=0;
   const rows=veicFiltrados.map(v=>{
     const abasts=(v.abastecimentos||[]).filter(a=>(!de||a.data>=de)&&(!ate||a.data<=ate)&&(!tipoComb||a.tipo===tipoComb)).sort((a,b)=>b.data.localeCompare(a.data));
     abasts.forEach(a=>{a._origIdx=(v.abastecimentos||[]).findIndex(x=>x===a);});
@@ -3307,10 +3365,37 @@ function _calcFinData(fv, mes, tipoComb, tipoManut, catOc){
     outros.forEach(o=>{o._origIdx=(v.outros_custos||[]).findIndex(x=>x===o);});
     const custoOutros=outros.reduce((s,o)=>s+(o.valor||0),0);
     const total=custoAbast+custoManut+custoMultas+custoOutros;
-    grandTotal+=total;totalComb+=custoAbast;totalMnt+=custoManut;totalMultas+=custoMultas;totalOtros+=custoOutros;qtdMultas+=multas.length;
-    return{v,abasts,custoAbast,cplMedio,sumLit,mnts,custoManut,multas,custoMultas,outros,custoOutros,total};
+    // Km rodado no período — soma de (retorno_km - saida_km) dos checklists concluídos deste veículo
+    const kmRodado=reservas.filter(r=>r.veiculo_id===v.id&&r.checklist?.saida_km&&r.checklist?.retorno_km&&(!de||r.data_saida>=de)&&(!ate||r.data_saida<=ate)).reduce((s,r)=>s+Math.max(0,(r.checklist.retorno_km-r.checklist.saida_km)),0);
+    grandTotal+=total;totalComb+=custoAbast;totalMnt+=custoManut;totalMultas+=custoMultas;totalOtros+=custoOutros;qtdMultas+=multas.length;kmRodadoTotal+=kmRodado;
+    return{v,abasts,custoAbast,cplMedio,sumLit,mnts,custoManut,multas,custoMultas,outros,custoOutros,total,kmRodado};
   });
-  return{rows,grandTotal,totalComb,totalMnt,totalMultas,totalOtros,qtdMultas,veicFiltrados};
+  return{rows,grandTotal,totalComb,totalMnt,totalMultas,totalOtros,qtdMultas,kmRodadoTotal,veicFiltrados};
+}
+
+function _calcAnoAno(){
+  const anoAtual=parseInt(TODAY.slice(0,4));
+  const anoAnterior=anoAtual-1;
+  const totais={};
+  [anoAtual,anoAnterior].forEach(ano=>{totais[ano]=Array(12).fill(0);});
+  veiculos.forEach(v=>{
+    (v.abastecimentos||[]).forEach(a=>{
+      if(!a.data)return;
+      const ano=parseInt(a.data.slice(0,4)),mes=parseInt(a.data.slice(5,7))-1;
+      if(totais[ano])totais[ano][mes]+=(a.valor||0);
+    });
+    (v.manutencoes||[]).forEach(m=>{
+      if(!m.valor||!m.data)return;
+      const ano=parseInt(m.data.slice(0,4)),mes=parseInt(m.data.slice(5,7))-1;
+      if(totais[ano])totais[ano][mes]+=(m.valor||0);
+    });
+    (v.outros_custos||[]).forEach(o=>{
+      if(!o.data)return;
+      const ano=parseInt(o.data.slice(0,4)),mes=parseInt(o.data.slice(5,7))-1;
+      if(totais[ano])totais[ano][mes]+=(o.valor||0);
+    });
+  });
+  return{anoAtual,anoAnterior,totais};
 }
 
 function _calcEvolucao(){
@@ -3339,7 +3424,7 @@ function _calcEvolucao(){
 function _renderFinDash(prefix){
   const fv=$(prefix+'fvei')?.value||'';
   const mes=$(prefix+'fmes')?.value||'';
-  const{rows,grandTotal,totalComb,totalMnt,totalMultas,totalOtros,qtdMultas,veicFiltrados}=_calcFinData(fv,mes);
+  const{rows,grandTotal,totalComb,totalMnt,totalMultas,totalOtros,qtdMultas,kmRodadoTotal,veicFiltrados}=_calcFinData(fv,mes);
   const evolucao=_calcEvolucao();
   const PALETTE=['#003E7E','#00A651','#D97706','#7C3AED','#0EA5E9','#DC2626'];
 
@@ -3366,6 +3451,13 @@ function _renderFinDash(prefix){
   const ctxEv=document.getElementById(prefix+'chart-evolucao');
   if(ctxEv) _finCharts[prefix+'evolucao']=new Chart(ctxEv,{type:'bar',data:{labels:evolucao.map(e=>e.label),datasets:[{label:'Combustível',data:evolucao.map(e=>e.comb),backgroundColor:'#D97706'},{label:'Manutenções',data:evolucao.map(e=>e.mnt),backgroundColor:'#003E7E'},{label:'Multas',data:evolucao.map(e=>e.multas),backgroundColor:'#DC2626'},{label:'Outros',data:evolucao.map(e=>e.outros),backgroundColor:'#7C3AED'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}});
 
+  // Gráfico: Comparativo ano a ano (todos os meses, independe dos filtros de veículo/mês)
+  _destroyChart(prefix+'anoano');
+  const{anoAtual,anoAnterior,totais:totaisAA}=_calcAnoAno();
+  const ctxAA=document.getElementById(prefix+'chart-anoano');
+  const MESES_ABREV=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  if(ctxAA) _finCharts[prefix+'anoano']=new Chart(ctxAA,{type:'bar',data:{labels:MESES_ABREV,datasets:[{label:String(anoAnterior),data:totaisAA[anoAnterior],backgroundColor:'#CBD5E1'},{label:String(anoAtual),data:totaisAA[anoAtual],backgroundColor:'#003E7E'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}});
+
   // Gráfico 2: Pizza por veículo
   _destroyChart(prefix+'veiculo');
   const rowsComCusto=rows.filter(r=>r.total>0);
@@ -3389,9 +3481,11 @@ function _renderFinDash(prefix){
     const litrosTotal=rows.reduce((s,r)=>s+(r.sumLit||0),0);
     const valorLitrosTotal=rows.reduce((s,r)=>s+(r.cplMedio?r.cplMedio*r.sumLit:0),0);
     const cplFrota=litrosTotal>0?valorLitrosTotal/litrosTotal:null;
+    const custoPorKm=kmRodadoTotal>0?grandTotal/kmRodadoTotal:null;
     indEl.innerHTML=
       '<div class="fin-kpi" style="background:var(--gray-50);border:1.5px solid var(--gray-200)"><div class="fin-kpi-lbl" style="color:var(--gray-400)"><i class="ti ti-tool"></i> Custo médio de manutenção / veículo</div><div class="fin-kpi-val" style="color:var(--gray-700);font-size:18px">R$ '+custoMedioManutVei.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div>'+
-      '<div class="fin-kpi" style="background:#FEF3C7;border:1.5px solid #FDE68A"><div class="fin-kpi-lbl" style="color:#92400E"><i class="ti ti-gas-station"></i> R$/L médio da frota</div><div class="fin-kpi-val" style="color:#D97706;font-size:18px">'+(cplFrota?'R$ '+cplFrota.toFixed(2):'—')+'</div></div>';
+      '<div class="fin-kpi" style="background:#FEF3C7;border:1.5px solid #FDE68A"><div class="fin-kpi-lbl" style="color:#92400E"><i class="ti ti-gas-station"></i> R$/L médio da frota</div><div class="fin-kpi-val" style="color:#D97706;font-size:18px">'+(cplFrota?'R$ '+cplFrota.toFixed(2):'—')+'</div></div>'+
+      '<div class="fin-kpi" style="background:#F5F3FF;border:1.5px solid #DDD6FE"><div class="fin-kpi-lbl" style="color:#5B21B6"><i class="ti ti-road"></i> Custo por km rodado</div><div class="fin-kpi-val" style="color:#7C3AED;font-size:18px">'+(custoPorKm?'R$ '+custoPorKm.toFixed(2)+'/km':'—')+'</div>'+(kmRodadoTotal>0?'<div style="font-size:10px;color:var(--gray-400);margin-top:2px">'+kmRodadoTotal.toLocaleString('pt-BR')+' km no período</div>':'<div style="font-size:10px;color:var(--gray-400);margin-top:2px">Sem checklists concluídos no período</div>')+'</div>';
   }
 
   // Ranking — veículos mais caros
@@ -4162,7 +4256,7 @@ function checkExpiracaoReservas(){
     if(localStorage.getItem(chave))return; // já notificou
     localStorage.setItem(chave,'1');
     // Toast de alerta
-    toast(`⏰ ${v?.nome||'Veículo'} — reserva de ${r.responsavel} inicia em ${diffMin} min sem checklist!`,'warn',8000);
+    toast(`⏰ ${v?.nome||'Veículo'} — reserva de ${esc(r.responsavel)} inicia em ${diffMin} min sem checklist!`,'warn',8000);
     // Badge de alerta na aba Aprovações
     const tab=$('atb-aprov');
     if(tab&&!tab.querySelector('.exp-badge')){

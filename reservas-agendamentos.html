@@ -2255,11 +2255,12 @@ async function confAp(acao){
           <p style="font-size:12px;color:#9ca3af;margin-top:16px">Acesse o sistema: <a href="https://1brunomoreno.github.io/frota-uniser/reservas-agendamentos.html" style="color:#1565C0">frota-uniser</a></p>
         </div></div>`;
       try{
-        await fetch('https://api.resend.com/emails',{
+        const respEmail=await fetch(`${SB_URL}/functions/v1/send-reserva-email`,{
           method:'POST',
-          headers:{'Authorization':`Bearer ${Deno?.env?.get?.('RESEND_API_KEY')||''}`, 'Content-Type':'application/json'},
-          body:JSON.stringify({from:'onboarding@resend.dev',to:email,subject:`${icone} ${titulo} — Protocolo #${protocolo}`,html:htmlEmail})
+          headers:{'Authorization':`Bearer ${SB_KEY}`, 'Content-Type':'application/json'},
+          body:JSON.stringify({to:email,subject:`${icone} ${titulo} — Protocolo #${protocolo}`,html:htmlEmail})
         });
+        if(!respEmail.ok) console.warn('E-mail solicitante: falha na Edge Function',await respEmail.text());
       }catch(e){console.warn('E-mail solicitante:',e);}
     }
     let msg;

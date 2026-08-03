@@ -1503,8 +1503,13 @@ setInterval(async()=>{
 /* STATUS */
 function vSt(v){
   if(v.status==='manutencao')return{l:'Manutenção',cls:'b-mnt',bar:'vb-mnt',ic:'ti-tool'};
-  // Em uso: reserva aprovada que já começou hoje e ainda não retornou
-  const h=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&r.data_saida<=TODAY&&r.hora_retorno>=NOW);
+  // Em uso: checklist de saída já registrado e retorno ainda não — reflete a
+  // situação real do veículo, mesmo que a viagem tenha passado do horário
+  // previsto de retorno (evita voltar a mostrar "Disponível" por atraso).
+  const emViagem=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&r.checklist?.saida_hora&&!r.checklist?.retorno_hora);
+  if(emViagem)return{l:'Em uso',cls:'b-uso',bar:'vb-uso',ic:'ti-car'};
+  // Em uso: dentro da janela agendada de hoje, mesmo sem checklist preenchido ainda
+  const h=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&r.data_saida<=TODAY&&r.data_retorno>=TODAY&&r.hora_saida<=NOW&&r.hora_retorno>=NOW);
   if(h)return{l:'Em uso',cls:'b-uso',bar:'vb-uso',ic:'ti-car'};
   // Reservado: reserva aprovada PARA HOJE que ainda não começou
   const t=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&r.data_saida===TODAY&&r.hora_saida>NOW);

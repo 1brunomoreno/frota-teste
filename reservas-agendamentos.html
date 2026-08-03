@@ -2257,7 +2257,7 @@ async function confAp(acao){
       try{
         const respEmail=await fetch(`${SB_URL}/functions/v1/send-reserva-email`,{
           method:'POST',
-          headers:{'Authorization':`Bearer ${SB_KEY}`, 'Content-Type':'application/json'},
+          headers:{'Authorization':`Bearer ${SB_KEY}`,'apikey':SB_KEY,'Content-Type':'application/json'},
           body:JSON.stringify({to:email,subject:`${icone} ${titulo} — Protocolo #${protocolo}`,html:htmlEmail})
         });
         if(!respEmail.ok) console.warn('E-mail solicitante: falha na Edge Function',await respEmail.text());

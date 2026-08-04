@@ -418,6 +418,8 @@ tr:hover td{background:var(--gray-50)}
 .cal-day.past-d{background:#F1F3F7;opacity:.65;}
 .cal-day.past-d .cdn{color:var(--gray-300);}
 .cal-day.past-d:hover{border-color:transparent;background:#F1F3F7;cursor:default;}
+.cal-day.past-d.admin-clicavel{cursor:pointer;opacity:.85;}
+.cal-day.past-d.admin-clicavel:hover{border-color:var(--blue3);background:var(--blue-xl);cursor:pointer;}
 
 /* BADGE VEÍCULO NO SELECT DO FORMULÁRIO */
 #rv-vei-status{display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:var(--r10);font-size:12px;font-weight:600;font-family:var(--fh);margin-top:5px;border:1.5px solid transparent}
@@ -1093,6 +1095,10 @@ tr:hover td{background:var(--gray-50)}
 </div>
 <div class="mftr"><button class="btn btn-ghost" onclick="cov('ov-er')">Cancelar</button><button class="btn btn-p" onclick="salvarEditRes()"><i class="ti ti-check"></i> Salvar</button></div></div></div>
 
+<div class="ov" id="ov-dia-cal"><div class="modal lg"><div class="mhdr"><h3 id="dia-cal-tit">Reservas do dia</h3><button class="xbtn" onclick="cov('ov-dia-cal')"><i class="ti ti-x"></i></button></div>
+<div class="mbody" id="dia-cal-body"></div>
+<div class="mftr"><button class="btn btn-ghost" onclick="cov('ov-dia-cal')">Fechar</button></div></div></div>
+
 <div class="ov" id="ov-vei"><div class="modal"><div class="mhdr"><h3 id="vm-tit">Novo veículo</h3><button class="xbtn" onclick="cov('ov-vei')"><i class="ti ti-x"></i></button></div>
 <div class="mbody">
   <div class="g2"><div class="fg"><label class="flbl">Nome</label><input class="fi" id="vf-nome" placeholder="Ex: Kombi"></div><div class="fg"><label class="flbl">Modelo</label><input class="fi" id="vf-mod" placeholder="Ex: VW Kombi 1.4"></div></div>
@@ -1738,8 +1744,8 @@ function renderCal(){
     const isPast=ds<TODAY;
     const dr=reservas.filter(r=>r.status!=='negado'&&r.data_saida<=ds&&r.data_retorno>=ds);
     const pills=dr.slice(0,3).map(r=>{const v=veiculos.find(x=>x.id===r.veiculo_id);const cl=r.status==='aprovado'?'cp-g':r.status==='pendente'?'cp-a':'cp-b';return`<span class="cpill ${cl}">${v?.nome||'?'} ${r.hora_saida?r.hora_saida:''}</span>`;}).join('')+(dr.length>3?`<span class="cpill cp-b">+${dr.length-3}</span>`:'');
-    const cls='cal-day'+(isT?' today-d':isPast?' past-d':'');
-    const onclick=isPast?'':`onclick="showCalDay('${ds}')"`;
+    const cls='cal-day'+(isT?' today-d':isPast?' past-d':'')+(adminLogado?' admin-clicavel':'');
+    const onclick=adminLogado?`onclick="abrirDiaCal('${ds}')"`:'';
     h+=`<div class="${cls}" ${onclick}><span class="cdn">${d}</span>${pills}</div>`;
   }
   const used=sd+last,rem=used%7?7-used%7:0;
@@ -1748,12 +1754,10 @@ function renderCal(){
 }
 function calNav(d){calM+=d;if(calM>11){calM=0;calY++;}if(calM<0){calM=11;calY--;}renderCal();}
 function rbadge(s){const m={pendente:{cls:'b-pend',l:'Pendente'},aprovado:{cls:'b-aprov',l:'Aprovado'},negado:{cls:'b-neg',l:'Negado'},concluido:{cls:'b-conc',l:'Concluído'}};const e=m[s]||m.pendente;return`<span class="badge ${e.cls}">${e.l}</span>`;}
-function showCalDay(ds){
-  const[y,m,d]=ds.split('-');
+function _diaCalHtml(ds){
   const dr=reservas.filter(r=>r.status!=='negado'&&r.data_saida<=ds&&r.data_retorno>=ds);
-  const el=$('cal-detail');
-  if(!dr.length){el.innerHTML='';return}
-  el.innerHTML=`<div class="stitle" style="padding:0 4px">Reservas em ${d}/${m}/${y}</div>`+dr.map(r=>{
+  if(!dr.length)return'<div class="empty"><i class="ti ti-calendar-off"></i><h4>Nenhuma reserva nesse dia</h4></div>';
+  return dr.map(r=>{
     const v=veiculos.find(x=>x.id===r.veiculo_id);
     return`<div style="background:var(--gray-50);border-radius:var(--r10);padding:10px 13px;margin-bottom:8px;border:1px solid var(--gray-200)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font-family:var(--fh);font-weight:600;font-size:13px">${v?.nome||'?'} <span style="font-family:monospace;font-size:10px;color:var(--gray-400)">${v?.placa||''}</span></span>${rbadge(r.status)}</div>
@@ -1765,6 +1769,14 @@ function showCalDay(ds){
       ${r.feedback?`<div style="background:var(--blue-xl);border-radius:var(--r6);padding:7px 10px;margin-top:8px;font-size:12px;color:var(--blue3)"><strong>Feedback:</strong> ${esc(r.feedback)}</div>`:''}
     </div>`;
   }).join('');
+}
+// Exclusivo do admin: abre o dia inteiro num modal (funciona pra qualquer dia, inclusive passados)
+function abrirDiaCal(ds){
+  if(!adminLogado)return;
+  const[y,m,d]=ds.split('-');
+  $('dia-cal-tit').textContent=`Reservas em ${d}/${m}/${y}`;
+  $('dia-cal-body').innerHTML=_diaCalHtml(ds);
+  ov('ov-dia-cal');
 }
 
 /* CHECKLIST PÚBLICO */

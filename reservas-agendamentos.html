@@ -1358,6 +1358,12 @@ const TODAY=new Date().toISOString().split('T')[0];
 const NOW=new Date().toTimeString().slice(0,5);
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DOWS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const RESERVA_BUFFER_MIN=20; // margem mínima obrigatória entre reservas do mesmo veículo
+function _addMin(hhmm,min){
+  const[h,m]=hhmm.split(':').map(Number);
+  let total=Math.max(0,Math.min(1439,h*60+m+min)); // limita dentro do mesmo dia
+  return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+}
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 // Trilha de auditoria — registra quem aprovou/negou/editou uma reserva e quando.
@@ -1664,17 +1670,31 @@ function checkConflictLive(){
   const btn=$('rv-submit-btn');
   checkRodizio(vId, data);
   if(!vId||!data||!hsai||!hret||hsai>=hret){msg.style.display='none';btn.disabled=false;btn.style.opacity='';return;}
-  // Conflito com APROVADO → bloqueia
-  const confAprov=reservas.find(r=>String(r.veiculo_id)===String(vId)&&r.status==='aprovado'&&r.data_saida===data&&!(r.hora_retorno<=hsai||r.hora_saida>=hret));
+  // Conflito com APROVADO → bloqueia (com margem de segurança entre reservas)
+  const confAprov=reservas.find(r=>{
+    if(String(r.veiculo_id)!==String(vId)||r.status!=='aprovado'||r.data_saida!==data)return false;
+    // Reservas de múltiplos dias emendadas (23:59 -> 00:00 do dia seguinte) não
+    // recebem margem nesse ponto de encontro — é continuação, não troca de motorista
+    const retBuf=r.hora_retorno==='23:59'?r.hora_retorno:_addMin(r.hora_retorno,RESERVA_BUFFER_MIN);
+    const saiBuf=r.hora_saida==='00:00'?r.hora_saida:_addMin(r.hora_saida,-RESERVA_BUFFER_MIN);
+    return !(retBuf<=hsai||saiBuf>=hret);
+  });
   if(confAprov){
     const v=veiculos.find(x=>String(x.id)===String(vId));
     msg.style.cssText='display:flex;border-radius:var(--r10);padding:10px 14px;font-size:13px;align-items:flex-start;gap:9px;border:1px solid;margin-bottom:4px;background:#FEF2F2;border-color:#FECACA;color:#991B1B;';
-    msg.innerHTML=`<i class="ti ti-ban" style="flex-shrink:0;margin-top:1px"></i><span><strong>Horário indisponível.</strong> ${v?.nome||'Este veículo'} já possui reserva <strong>aprovada</strong> das ${confAprov.hora_saida} às ${confAprov.hora_retorno} por ${confAprov.responsavel}. Escolha outro veículo ou horário.</span>`;
+    msg.innerHTML=`<i class="ti ti-ban" style="flex-shrink:0;margin-top:1px"></i><span><strong>Horário indisponível.</strong> ${v?.nome||'Este veículo'} já possui reserva <strong>aprovada</strong> das ${confAprov.hora_saida} às ${confAprov.hora_retorno} por ${confAprov.responsavel} (é necessário um intervalo mínimo de ${RESERVA_BUFFER_MIN} min entre reservas). Escolha outro veículo ou horário.</span>`;
     btn.disabled=true;btn.style.opacity='0.45';
     return;
   }
-  // Conflito com PENDENTE → avisa mas permite
-  const confPend=reservas.find(r=>String(r.veiculo_id)===String(vId)&&r.status==='pendente'&&r.data_saida===data&&!(r.hora_retorno<=hsai||r.hora_saida>=hret));
+  // Conflito com PENDENTE → avisa mas permite (mesma margem)
+  const confPend=reservas.find(r=>{
+    if(String(r.veiculo_id)!==String(vId)||r.status!=='pendente'||r.data_saida!==data)return false;
+    // Reservas de múltiplos dias emendadas (23:59 -> 00:00 do dia seguinte) não
+    // recebem margem nesse ponto de encontro — é continuação, não troca de motorista
+    const retBuf=r.hora_retorno==='23:59'?r.hora_retorno:_addMin(r.hora_retorno,RESERVA_BUFFER_MIN);
+    const saiBuf=r.hora_saida==='00:00'?r.hora_saida:_addMin(r.hora_saida,-RESERVA_BUFFER_MIN);
+    return !(retBuf<=hsai||saiBuf>=hret);
+  });
   if(confPend){
     msg.style.cssText='display:flex;border-radius:var(--r10);padding:10px 14px;font-size:13px;align-items:flex-start;gap:9px;border:1px solid;margin-bottom:4px;background:#FFFBEB;border-color:#FDE68A;color:#92400E;';
     msg.innerHTML=`<i class="ti ti-alert-triangle" style="flex-shrink:0;margin-top:1px"></i><span><strong>Atenção:</strong> já existe uma solicitação <strong>pendente</strong> das ${confPend.hora_saida} às ${confPend.hora_retorno} para este veículo. Você pode enviar mesmo assim — o administrador decidirá qual aprovar.</span>`;
@@ -1744,8 +1764,8 @@ function renderCal(){
     const isPast=ds<TODAY;
     const dr=reservas.filter(r=>r.status!=='negado'&&r.data_saida<=ds&&r.data_retorno>=ds);
     const pills=dr.slice(0,3).map(r=>{const v=veiculos.find(x=>x.id===r.veiculo_id);const cl=r.status==='aprovado'?'cp-g':r.status==='pendente'?'cp-a':'cp-b';return`<span class="cpill ${cl}">${v?.nome||'?'} ${r.hora_saida?r.hora_saida:''}</span>`;}).join('')+(dr.length>3?`<span class="cpill cp-b">+${dr.length-3}</span>`:'');
-    const cls='cal-day'+(isT?' today-d':isPast?' past-d':'')+(adminLogado?' admin-clicavel':'');
-    const onclick=adminLogado?`onclick="abrirDiaCal('${ds}')"`:'';
+    const cls='cal-day'+(isT?' today-d':isPast?' past-d':'')+' admin-clicavel';
+    const onclick=`onclick="abrirDiaCal('${ds}')"`;
     h+=`<div class="${cls}" ${onclick}><span class="cdn">${d}</span>${pills}</div>`;
   }
   const used=sd+last,rem=used%7?7-used%7:0;
@@ -1770,9 +1790,8 @@ function _diaCalHtml(ds){
     </div>`;
   }).join('');
 }
-// Exclusivo do admin: abre o dia inteiro num modal (funciona pra qualquer dia, inclusive passados)
+// Abre o dia inteiro num modal (funciona pra qualquer dia, inclusive passados) — disponível pra todos os usuários
 function abrirDiaCal(ds){
-  if(!adminLogado)return;
   const[y,m,d]=ds.split('-');
   $('dia-cal-tit').textContent=`Reservas em ${d}/${m}/${y}`;
   $('dia-cal-body').innerHTML=_diaCalHtml(ds);

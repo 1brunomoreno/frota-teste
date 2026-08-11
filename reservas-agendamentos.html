@@ -1369,14 +1369,17 @@ const NOW=new Date().toTimeString().slice(0,5);
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DOWS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const RESERVA_BUFFER_MIN=20; // margem mínima obrigatória entre reservas do mesmo veículo
+// Normaliza qualquer horário pra "HH:MM" — o Supabase devolve colunas do tipo
+// time com segundos (ex: "06:00:00"), o que quebrava as comparações abaixo
+function _hhmm(s){return(s||'00:00').slice(0,5);}
 function _addMin(hhmm,min){
-  const[h,m]=hhmm.split(':').map(Number);
+  const[h,m]=_hhmm(hhmm).split(':').map(Number);
   let total=Math.max(0,Math.min(1439,h*60+m+min)); // limita dentro do mesmo dia
   return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
 }
 // Helpers de data+hora reais — usados pra checar conflito em reservas que podem
 // abranger mais de um dia (evita depender só de comparação de horário no mesmo dia)
-function _toDateTime(dataStr,horaStr){return new Date(dataStr+'T'+(horaStr||'00:00')+':00');}
+function _toDateTime(dataStr,horaStr){return new Date(dataStr+'T'+_hhmm(horaStr)+':00');}
 function _addMinDT(date,min){return new Date(date.getTime()+min*60000);}
 // Retorna true se a reserva "r" conflita com o intervalo [novoInicio,novoFim).
 // Reservas terminando exatamente às 23:59 ou começando exatamente às 00:00 não
@@ -1385,8 +1388,8 @@ function _addMinDT(date,min){return new Date(date.getTime()+min*60000);}
 function _reservaConflita(r,novoInicio,novoFim,bufferMin){
   const existSaida=_toDateTime(r.data_saida,r.hora_saida);
   const existRetorno=_toDateTime(r.data_retorno||r.data_saida,r.hora_retorno);
-  const saidaBuf=r.hora_saida==='00:00'?existSaida:_addMinDT(existSaida,-bufferMin);
-  const retornoBuf=r.hora_retorno==='23:59'?existRetorno:_addMinDT(existRetorno,bufferMin);
+  const saidaBuf=_hhmm(r.hora_saida)==='00:00'?existSaida:_addMinDT(existSaida,-bufferMin);
+  const retornoBuf=_hhmm(r.hora_retorno)==='23:59'?existRetorno:_addMinDT(existRetorno,bufferMin);
   return !(retornoBuf<=novoInicio||saidaBuf>=novoFim);
 }
 const $=id=>document.getElementById(id);
@@ -1586,10 +1589,10 @@ function vSt(v){
   const emViagem=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&r.checklist?.saida_hora&&!r.checklist?.retorno_hora);
   if(emViagem)return{l:'Em uso',cls:'b-uso',bar:'vb-uso',ic:'ti-car'};
   // Em uso: dentro da janela agendada de hoje, mesmo sem checklist preenchido ainda
-  const h=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&r.data_saida<=TODAY&&r.data_retorno>=TODAY&&r.hora_saida<=NOW&&r.hora_retorno>=NOW);
+  const h=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&r.data_saida<=TODAY&&r.data_retorno>=TODAY&&_hhmm(r.hora_saida)<=NOW&&_hhmm(r.hora_retorno)>=NOW);
   if(h)return{l:'Em uso',cls:'b-uso',bar:'vb-uso',ic:'ti-car'};
   // Reservado: reserva aprovada PARA HOJE que ainda não começou
-  const t=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&r.data_saida===TODAY&&r.hora_saida>NOW);
+  const t=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&r.data_saida===TODAY&&_hhmm(r.hora_saida)>NOW);
   if(t)return{l:'Reservado',cls:'b-res',bar:'vb-res',ic:'ti-calendar-event'};
   // Disponível: reservas futuras (outros dias) não alteram o status
   return{l:'Disponível',cls:'b-ok',bar:'vb-ok',ic:'ti-circle-check'};
@@ -1727,7 +1730,7 @@ function checkConflictLive(){
   if(confAprov){
     const v=veiculos.find(x=>String(x.id)===String(vId));
     msg.style.cssText='display:flex;border-radius:var(--r10);padding:10px 14px;font-size:13px;align-items:flex-start;gap:9px;border:1px solid;margin-bottom:4px;background:#FEF2F2;border-color:#FECACA;color:#991B1B;';
-    msg.innerHTML=`<i class="ti ti-ban" style="flex-shrink:0;margin-top:1px"></i><span><strong>Horário indisponível.</strong> ${v?.nome||'Este veículo'} já possui reserva <strong>aprovada</strong> de ${fmt(confAprov.data_saida)} ${confAprov.hora_saida} até ${fmt(confAprov.data_retorno)} ${confAprov.hora_retorno}, por ${esc(confAprov.responsavel)} (é necessário um intervalo mínimo de ${RESERVA_BUFFER_MIN} min entre reservas). Escolha outro veículo ou horário.</span>`;
+    msg.innerHTML=`<i class="ti ti-ban" style="flex-shrink:0;margin-top:1px"></i><span><strong>Horário indisponível.</strong> ${v?.nome||'Este veículo'} já possui reserva <strong>aprovada</strong> de ${fmt(confAprov.data_saida)} ${_hhmm(confAprov.hora_saida)} até ${fmt(confAprov.data_retorno)} ${_hhmm(confAprov.hora_retorno)}, por ${esc(confAprov.responsavel)} (é necessário um intervalo mínimo de ${RESERVA_BUFFER_MIN} min entre reservas). Escolha outro veículo ou horário.</span>`;
     btn.disabled=true;btn.style.opacity='0.45';
     return;
   }
@@ -1735,7 +1738,7 @@ function checkConflictLive(){
   const confPend=reservas.find(r=>String(r.veiculo_id)===String(vId)&&r.status==='pendente'&&_reservaConflita(r,novoInicio,novoFim,RESERVA_BUFFER_MIN));
   if(confPend){
     msg.style.cssText='display:flex;border-radius:var(--r10);padding:10px 14px;font-size:13px;align-items:flex-start;gap:9px;border:1px solid;margin-bottom:4px;background:#FFFBEB;border-color:#FDE68A;color:#92400E;';
-    msg.innerHTML=`<i class="ti ti-alert-triangle" style="flex-shrink:0;margin-top:1px"></i><span><strong>Atenção:</strong> já existe uma solicitação <strong>pendente</strong> de ${fmt(confPend.data_saida)} ${confPend.hora_saida} até ${fmt(confPend.data_retorno)} ${confPend.hora_retorno} para este veículo. Você pode enviar mesmo assim — o administrador decidirá qual aprovar.</span>`;
+    msg.innerHTML=`<i class="ti ti-alert-triangle" style="flex-shrink:0;margin-top:1px"></i><span><strong>Atenção:</strong> já existe uma solicitação <strong>pendente</strong> de ${fmt(confPend.data_saida)} ${_hhmm(confPend.hora_saida)} até ${fmt(confPend.data_retorno)} ${_hhmm(confPend.hora_retorno)} para este veículo. Você pode enviar mesmo assim — o administrador decidirá qual aprovar.</span>`;
     btn.disabled=false;btn.style.opacity='';
     return;
   }
@@ -2973,7 +2976,7 @@ function limparLav(){
 // Verifica se o veículo já tem uma reserva aprovada cobrindo o horário da lavagem
 function _lavagemConflita(vid,data,hora){
   if(!vid||!data||!hora)return null;
-  return reservas.find(r=>String(r.veiculo_id)===String(vid)&&r.status==='aprovado'&&r.data_saida<=data&&r.data_retorno>=data&&r.hora_saida<=hora&&r.hora_retorno>=hora)||null;
+  return reservas.find(r=>String(r.veiculo_id)===String(vid)&&r.status==='aprovado'&&r.data_saida<=data&&r.data_retorno>=data&&_hhmm(r.hora_saida)<=hora&&_hhmm(r.hora_retorno)>=hora)||null;
 }
 function checkLavConflict(){
   const vid=$('lv-vei').value,data=$('lv-data').value,hora=$('lv-hora').value;
@@ -2982,7 +2985,7 @@ function checkLavConflict(){
   if(conflito){
     const v=veiculos.find(x=>String(x.id)===String(vid));
     msg.style.cssText='display:flex;border-radius:var(--r10);padding:10px 14px;font-size:13px;align-items:flex-start;gap:9px;border:1px solid;margin-bottom:4px;background:#FEF2F2;border-color:#FECACA;color:#991B1B;';
-    msg.innerHTML=`<i class="ti ti-ban" style="flex-shrink:0;margin-top:1px"></i><span><strong>Veículo em uso nesse horário.</strong> ${v?.nome||'Este veículo'} tem reserva aprovada das ${conflito.hora_saida} às ${conflito.hora_retorno} (${esc(conflito.responsavel)}). Escolha outro horário para a lavagem.</span>`;
+    msg.innerHTML=`<i class="ti ti-ban" style="flex-shrink:0;margin-top:1px"></i><span><strong>Veículo em uso nesse horário.</strong> ${v?.nome||'Este veículo'} tem reserva aprovada das ${_hhmm(conflito.hora_saida)} às ${_hhmm(conflito.hora_retorno)} (${esc(conflito.responsavel)}). Escolha outro horário para a lavagem.</span>`;
   }else{
     msg.style.display='none';
   }

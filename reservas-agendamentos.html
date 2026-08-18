@@ -543,6 +543,7 @@ tr:hover td{background:var(--gray-50)}
       <div class="fin-dash-tabs">
         <button class="fin-dash-tab on" id="ftab-dash" onclick="switchFinTab('dash')"><i class="ti ti-chart-bar"></i> Dashboard</button>
         <button class="fin-dash-tab" id="ftab-lanc" onclick="switchFinTab('lanc')"><i class="ti ti-list"></i> Lançamentos</button>
+        <button class="fin-dash-tab" id="ftab-cartao" onclick="switchFinTab('cartao')"><i class="ti ti-credit-card"></i> Cartão Combustível</button>
       </div>
       <!-- KPIs (sempre visíveis) -->
       <div class="fin-kpi-grid" id="fin-kpis"></div>
@@ -571,6 +572,19 @@ tr:hover td{background:var(--gray-50)}
           </div>
         </div>
         <div id="fin-detalhes"></div>
+      </div>
+      <!-- Cartão Combustível — somente visualização -->
+      <div id="fin-cartao-sec" style="display:none">
+        <div id="fin-cartao-alerta" style="display:none;margin-bottom:14px"></div>
+        <div style="background:#fff;border-radius:var(--r14);border:1.5px solid var(--gray-200);padding:18px;margin-bottom:14px">
+          <div style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">Saldo atual do cartão</div>
+          <div style="font-family:var(--fh);font-size:32px;font-weight:800" id="fin-cartao-saldo-val">R$ 0,00</div>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:8px" id="fin-cartao-atualizado-em"></div>
+        </div>
+        <div class="fin-chart-box">
+          <div class="fin-chart-title"><i class="ti ti-history"></i> Histórico de movimentações</div>
+          <div id="fin-cartao-historico"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -977,6 +991,7 @@ tr:hover td{background:var(--gray-50)}
           <div class="fin-dash-tabs" style="margin-bottom:14px">
             <button class="fin-dash-tab on" id="fadm-tab-dash" onclick="switchFinAdmTab('dash')"><i class="ti ti-chart-bar"></i> Dashboard</button>
             <button class="fin-dash-tab" id="fadm-tab-lanc" onclick="switchFinAdmTab('lanc')"><i class="ti ti-list"></i> Lançamentos</button>
+            <button class="fin-dash-tab" id="fadm-tab-cartao" onclick="switchFinAdmTab('cartao')"><i class="ti ti-credit-card"></i> Cartão Combustível</button>
             <button class="fin-dash-tab" id="fadm-tab-usr" onclick="switchFinAdmTab('usr')"><i class="ti ti-users"></i> Usuários</button>
           </div>
           <!-- Dashboard Admin -->
@@ -1021,6 +1036,40 @@ tr:hover td{background:var(--gray-50)}
             </div>
             <div class="fin-kpi-grid" id="fadm-lanc-kpis"></div>
             <div id="fadm-lanc-det"></div>
+          </div>
+          <!-- Cartão Combustível -->
+          <div id="fadm-cartao-sec" style="display:none">
+            <div id="cartao-alerta" style="display:none;margin-bottom:14px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+              <div style="background:#fff;border-radius:var(--r14);border:1.5px solid var(--gray-200);padding:18px" id="cartao-saldo-box">
+                <div style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">Saldo atual do cartão</div>
+                <div style="display:flex;align-items:center;gap:10px" id="cartao-saldo-view">
+                  <div style="font-family:var(--fh);font-size:32px;font-weight:800" id="cartao-saldo-val">R$ 0,00</div>
+                  <button class="btn btn-ghost btn-sm" onclick="abrirAjusteSaldo()" title="Ajustar saldo manualmente"><i class="ti ti-edit"></i></button>
+                </div>
+                <div id="cartao-saldo-edit" style="display:none;gap:8px;align-items:center;margin-top:6px">
+                  <input type="number" step="0.01" class="fi" id="cartao-saldo-input" style="max-width:160px" placeholder="0,00">
+                  <button class="btn btn-p btn-sm" onclick="salvarAjusteSaldo()"><i class="ti ti-check"></i></button>
+                  <button class="btn btn-ghost btn-sm" onclick="cancelarAjusteSaldo()"><i class="ti ti-x"></i></button>
+                </div>
+                <div style="font-size:11px;color:var(--gray-400);margin-top:8px" id="cartao-atualizado-em"></div>
+              </div>
+              <div style="background:#fff;border-radius:var(--r14);border:1.5px solid var(--gray-200);padding:18px">
+                <div style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Registrar recarga</div>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+                  <input type="number" step="0.01" class="fi" id="cartao-recarga-valor" placeholder="Valor da recarga">
+                  <button class="btn btn-p" style="white-space:nowrap" onclick="registrarRecarga()"><i class="ti ti-plus"></i> Recarregar</button>
+                </div>
+                <div style="border-top:1px solid var(--gray-200);padding-top:10px;display:flex;gap:8px;align-items:end">
+                  <div class="fg" style="margin:0;flex:1"><label class="flbl">Alertar quando o saldo chegar a</label><input type="number" step="0.01" class="fi" id="cartao-limite-input"></div>
+                  <button class="btn btn-ghost btn-sm" onclick="salvarLimiteAlerta()"><i class="ti ti-device-floppy"></i> Salvar</button>
+                </div>
+              </div>
+            </div>
+            <div class="fin-chart-box">
+              <div class="fin-chart-title"><i class="ti ti-history"></i> Histórico de movimentações</div>
+              <div id="cartao-historico"></div>
+            </div>
           </div>
           <!-- Usuários -->
           <div id="fadm-usr-sec" style="display:none">
@@ -3645,10 +3694,64 @@ function _renderFinDash(prefix){
 function switchFinTab(tab){
   $('ftab-dash').classList.toggle('on',tab==='dash');
   $('ftab-lanc').classList.toggle('on',tab==='lanc');
+  $('ftab-cartao')?.classList.toggle('on',tab==='cartao');
   $('fin-dash-sec').style.display=tab==='dash'?'':'none';
   $('fin-lanc-sec').style.display=tab==='lanc'?'':'none';
+  $('fin-cartao-sec').style.display=tab==='cartao'?'':'none';
   if(tab==='dash') _renderFinDash('fin-');
   if(tab==='lanc') renderFinanceiro();
+  if(tab==='cartao'){loadCartao().then(renderCartaoFin);}
+}
+// Versão somente-leitura do cartão de combustível, pros usuários financeiro
+// comuns (sem botão de recarga, ajuste de saldo ou edição de limite)
+function renderCartaoFin(){
+  const valEl=$('fin-cartao-saldo-val');
+  const hEl=$('fin-cartao-historico');
+  if(!cartaoData){
+    if(valEl){valEl.textContent='—';valEl.style.color='var(--gray-400)';}
+    $('fin-cartao-atualizado-em').textContent='';
+    $('fin-cartao-alerta').style.display='none';
+    if(hEl)hEl.innerHTML='<div class="empty"><i class="ti ti-credit-card-off"></i><h4>Cartão ainda não configurado</h4></div>';
+    return;
+  }
+  const saldo=parseFloat(cartaoData.saldo_atual)||0;
+  const limite=parseFloat(cartaoData.limite_alerta)||0;
+  const abaixo=saldo<=limite;
+  if(valEl){
+    valEl.textContent='R$ '+saldo.toLocaleString('pt-BR',{minimumFractionDigits:2});
+    valEl.style.color=abaixo?'#DC2626':'var(--gray-700)';
+  }
+  $('fin-cartao-atualizado-em').textContent=cartaoData.atualizado_em?('Atualizado em '+new Date(cartaoData.atualizado_em).toLocaleString('pt-BR')):'';
+  const alertaEl=$('fin-cartao-alerta');
+  if(abaixo){
+    alertaEl.style.cssText='display:flex;gap:9px;align-items:flex-start;border-radius:var(--r10);padding:12px 16px;font-size:13px;border:1px solid;background:#FEF2F2;border-color:#FECACA;color:#991B1B;';
+    alertaEl.innerHTML=`<i class="ti ti-alert-triangle" style="flex-shrink:0;margin-top:1px"></i><span><strong>Saldo baixo!</strong> O cartão está com R$ ${saldo.toLocaleString('pt-BR',{minimumFractionDigits:2})}, no limite ou abaixo do alerta de R$ ${limite.toLocaleString('pt-BR',{minimumFractionDigits:2})}.</span>`;
+  }else{
+    alertaEl.style.display='none';
+  }
+  if(!cartaoMovimentos.length){
+    hEl.innerHTML='<div class="empty"><i class="ti ti-history"></i><h4>Nenhuma movimentação registrada</h4></div>';
+    return;
+  }
+  const TIPO_LBL={recarga:{l:'Recarga',ic:'ti-plus',cor:'#16A34A'},debito_abastecimento:{l:'Abastecimento',ic:'ti-gas-station',cor:'#D97706'},ajuste:{l:'Ajuste manual',ic:'ti-adjustments',cor:'#6366F1'}};
+  hEl.innerHTML=cartaoMovimentos.map(m=>{
+    const info=TIPO_LBL[m.tipo]||{l:m.tipo,ic:'ti-circle',cor:'var(--gray-500)'};
+    const v=veiculos.find(x=>x.id===m.veiculo_id);
+    const valor=parseFloat(m.valor)||0;
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--gray-200)">
+      <div style="display:flex;align-items:center;gap:9px">
+        <i class="ti ${info.ic}" style="color:${info.cor};font-size:16px"></i>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--gray-700)">${info.l}${v?' — '+esc(v.nome):''}</div>
+          <div style="font-size:11px;color:var(--gray-400)">${new Date(m.criado_em).toLocaleString('pt-BR')}${m.descricao?' · '+esc(m.descricao):''}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--fh);font-weight:700;font-size:13px;color:${valor>=0?'#16A34A':'#DC2626'}">${valor>=0?'+':'-'}R$ ${Math.abs(valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+        <div style="font-size:10px;color:var(--gray-400)">saldo: R$ ${(parseFloat(m.saldo_apos)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderFinAtivo(){
@@ -3658,15 +3761,150 @@ function renderFinAtivo(){
 }
 
 function switchFinAdmTab(tab){
-  ['dash','lanc','usr'].forEach(t=>{
+  ['dash','lanc','cartao','usr'].forEach(t=>{
     $('fadm-tab-'+t)?.classList.toggle('on',t===tab);
   });
   $('fadm-dash-sec').style.display=tab==='dash'?'':'none';
   $('fadm-lanc-sec').style.display=tab==='lanc'?'':'none';
+  $('fadm-cartao-sec').style.display=tab==='cartao'?'':'none';
   $('fadm-usr-sec').style.display=tab==='usr'?'':'none';
   if(tab==='dash') renderFinDashAdm();
   if(tab==='lanc') renderFinLancAdm();
+  if(tab==='cartao'){loadCartao().then(renderCartaoAdm);}
   if(tab==='usr'){loadFinUsuarios().then(renderFinUsrList);}
+}
+
+/* ============================================================
+   CARTÃO DE COMBUSTÍVEL — saldo do cartão pré-pago, débito
+   automático a cada abastecimento, e alerta de saldo baixo
+============================================================ */
+let cartaoData=null;
+let cartaoMovimentos=[];
+
+async function loadCartao(){
+  try{
+    const{data:cd}=await SB.from('cartao_combustivel').select('*').order('id').limit(1).maybeSingle();
+    cartaoData=cd||null;
+    const{data:mv}=await SB.from('cartao_movimentos').select('*').order('criado_em',{ascending:false}).limit(50);
+    cartaoMovimentos=mv||[];
+  }catch(e){
+    cartaoData=null;cartaoMovimentos=[];
+    console.warn('Cartão combustível: tabela ainda não configurada.',e);
+  }
+}
+
+// Atualiza o saldo (update ou insert da 1ª linha) + grava o movimento no histórico.
+// Não mostra toast — cada chamador decide a mensagem certa pro contexto.
+async function _setSaldoCartao(novoSaldo,tipo,valorMovimento,descricao,veiculoId){
+  try{
+    if(!cartaoData){
+      const{data,error}=await SB.from('cartao_combustivel').insert([{saldo_atual:novoSaldo,limite_alerta:500,atualizado_em:new Date().toISOString()}]).select().single();
+      if(error)throw error;
+      cartaoData=data;
+    }else{
+      const{error}=await SB.from('cartao_combustivel').update({saldo_atual:novoSaldo,atualizado_em:new Date().toISOString()}).eq('id',cartaoData.id);
+      if(error)throw error;
+      cartaoData.saldo_atual=novoSaldo;
+    }
+    await SB.from('cartao_movimentos').insert([{tipo,valor:valorMovimento,saldo_apos:novoSaldo,descricao,veiculo_id:veiculoId||null,criado_por:currentUser?.nome||'Admin'}]);
+    return true;
+  }catch(e){
+    console.warn('Cartão combustível:',e.message||e);
+    return false;
+  }
+}
+
+function renderCartaoAdm(){
+  const valEl=$('cartao-saldo-val');
+  const hEl=$('cartao-historico');
+  if(!cartaoData){
+    if(valEl){valEl.textContent='—';valEl.style.color='var(--gray-400)';}
+    $('cartao-atualizado-em').textContent='';
+    $('cartao-alerta').style.display='none';
+    if(hEl)hEl.innerHTML='<div class="empty"><i class="ti ti-credit-card-off"></i><h4>Cartão ainda não configurado</h4><p>Peça para o desenvolvedor rodar o script SQL de criação das tabelas no Supabase.</p></div>';
+    return;
+  }
+  const saldo=parseFloat(cartaoData.saldo_atual)||0;
+  const limite=parseFloat(cartaoData.limite_alerta)||0;
+  const abaixo=saldo<=limite;
+  if(valEl){
+    valEl.textContent='R$ '+saldo.toLocaleString('pt-BR',{minimumFractionDigits:2});
+    valEl.style.color=abaixo?'#DC2626':'var(--gray-700)';
+  }
+  $('cartao-limite-input').value=limite;
+  $('cartao-atualizado-em').textContent=cartaoData.atualizado_em?('Atualizado em '+new Date(cartaoData.atualizado_em).toLocaleString('pt-BR')):'';
+  const alertaEl=$('cartao-alerta');
+  if(abaixo){
+    alertaEl.style.cssText='display:flex;gap:9px;align-items:flex-start;border-radius:var(--r10);padding:12px 16px;font-size:13px;border:1px solid;background:#FEF2F2;border-color:#FECACA;color:#991B1B;';
+    alertaEl.innerHTML=`<i class="ti ti-alert-triangle" style="flex-shrink:0;margin-top:1px"></i><span><strong>Saldo baixo!</strong> O cartão está com R$ ${saldo.toLocaleString('pt-BR',{minimumFractionDigits:2})}, no limite ou abaixo do alerta de R$ ${limite.toLocaleString('pt-BR',{minimumFractionDigits:2})}. Providencie uma nova recarga.</span>`;
+  }else{
+    alertaEl.style.display='none';
+  }
+  if(!cartaoMovimentos.length){
+    hEl.innerHTML='<div class="empty"><i class="ti ti-history"></i><h4>Nenhuma movimentação registrada</h4></div>';
+    return;
+  }
+  const TIPO_LBL={recarga:{l:'Recarga',ic:'ti-plus',cor:'#16A34A'},debito_abastecimento:{l:'Abastecimento',ic:'ti-gas-station',cor:'#D97706'},ajuste:{l:'Ajuste manual',ic:'ti-adjustments',cor:'#6366F1'}};
+  hEl.innerHTML=cartaoMovimentos.map(m=>{
+    const info=TIPO_LBL[m.tipo]||{l:m.tipo,ic:'ti-circle',cor:'var(--gray-500)'};
+    const v=veiculos.find(x=>x.id===m.veiculo_id);
+    const valor=parseFloat(m.valor)||0;
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--gray-200)">
+      <div style="display:flex;align-items:center;gap:9px">
+        <i class="ti ${info.ic}" style="color:${info.cor};font-size:16px"></i>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--gray-700)">${info.l}${v?' — '+esc(v.nome):''}</div>
+          <div style="font-size:11px;color:var(--gray-400)">${new Date(m.criado_em).toLocaleString('pt-BR')}${m.descricao?' · '+esc(m.descricao):''}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:var(--fh);font-weight:700;font-size:13px;color:${valor>=0?'#16A34A':'#DC2626'}">${valor>=0?'+':'-'}R$ ${Math.abs(valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+        <div style="font-size:10px;color:var(--gray-400)">saldo: R$ ${(parseFloat(m.saldo_apos)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function abrirAjusteSaldo(){
+  $('cartao-saldo-view').style.display='none';
+  $('cartao-saldo-edit').style.display='flex';
+  $('cartao-saldo-input').value=cartaoData?parseFloat(cartaoData.saldo_atual).toFixed(2):'';
+  $('cartao-saldo-input').focus();
+}
+function cancelarAjusteSaldo(){
+  $('cartao-saldo-view').style.display='flex';
+  $('cartao-saldo-edit').style.display='none';
+}
+async function salvarAjusteSaldo(){
+  const novoSaldo=parseFloat($('cartao-saldo-input').value);
+  if(isNaN(novoSaldo)||novoSaldo<0){toast('Informe um valor válido.','err');return}
+  if(!cartaoData) await loadCartao();
+  const diff=novoSaldo-(parseFloat(cartaoData?.saldo_atual)||0);
+  const ok=await _setSaldoCartao(novoSaldo,'ajuste',diff,'Ajuste manual de saldo');
+  cancelarAjusteSaldo();
+  if(!ok){toast('Erro ao ajustar saldo. Verifique se as tabelas do cartão já foram criadas no Supabase.','err',7000);return}
+  await loadCartao();renderCartaoAdm();
+  toast('✓ Saldo atualizado!','ok');
+}
+async function registrarRecarga(){
+  const valor=parseFloat($('cartao-recarga-valor').value);
+  if(!valor||valor<=0){toast('Informe o valor da recarga.','err');return}
+  if(!cartaoData) await loadCartao();
+  const saldoAtual=parseFloat(cartaoData?.saldo_atual)||0;
+  const ok=await _setSaldoCartao(saldoAtual+valor,'recarga',valor,'Recarga do cartão');
+  if(!ok){toast('Erro ao registrar recarga. Verifique se as tabelas do cartão já foram criadas no Supabase.','err',7000);return}
+  await loadCartao();renderCartaoAdm();
+  $('cartao-recarga-valor').value='';
+  toast('✓ Recarga registrada!','ok');
+}
+async function salvarLimiteAlerta(){
+  const limite=parseFloat($('cartao-limite-input').value);
+  if(isNaN(limite)||limite<0){toast('Informe um limite válido.','err');return}
+  if(!cartaoData){toast('Cartão ainda não configurado. Registre uma recarga ou ajuste o saldo primeiro.','err',6000);return}
+  const{error}=await SB.from('cartao_combustivel').update({limite_alerta:limite}).eq('id',cartaoData.id);
+  if(error){toast('Erro: '+error.message,'err');return}
+  await loadCartao();renderCartaoAdm();
+  toast('Limite de alerta atualizado.','ok');
 }
 
 function renderFinDashAdm(){
@@ -4123,6 +4361,16 @@ async function salvarAbastecimento(){
   const tabOn=$('atb-custos')?.classList.contains('on');
   if(tabOn)renderCustos();
   toast('⛽ Abastecimento registrado!','ok');
+  // Débito automático no cartão de combustível (se já estiver configurado)
+  if(!cartaoData) await loadCartao();
+  if(cartaoData){
+    const novoSaldoCartao=(parseFloat(cartaoData.saldo_atual)||0)-valor;
+    const okCartao=await _setSaldoCartao(novoSaldoCartao,'debito_abastecimento',-valor,`${v?.nome||'Veículo'} — abastecimento`,vid);
+    if(okCartao&&novoSaldoCartao<=(parseFloat(cartaoData.limite_alerta)||0)){
+      toast(`⚠ Saldo do cartão de combustível está baixo: R$ ${novoSaldoCartao.toLocaleString('pt-BR',{minimumFractionDigits:2})}. Providencie uma recarga.`,'warn',9000);
+    }
+    if($('fadm-cartao-sec')&&$('fadm-cartao-sec').style.display!=='none') renderCartaoAdm();
+  }
 }
 
 async function delAbastecimento(vid,idx){

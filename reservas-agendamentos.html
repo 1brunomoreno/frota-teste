@@ -626,19 +626,18 @@ tr:hover td{background:var(--gray-50)}
 <div class="mbody">
   <div style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:var(--r10);padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1E40AF;display:flex;gap:8px">
     <i class="ti ti-info-circle" style="flex-shrink:0;margin-top:1px"></i>
-    <span>Cole o link do Google Drive do comprovante. Certifique-se de que o compartilhamento está como <strong>"Qualquer pessoa com o link"</strong>.</span>
+    <span>Cole o link do Google Drive de cada comprovante. Certifique-se de que o compartilhamento está como <strong>"Qualquer pessoa com o link"</strong>. Se o serviço veio em mais de uma nota (ex: serviço + peças), adicione todas aqui.</span>
   </div>
   <div class="fg"><label class="flbl">Tipo</label><input class="fi" id="cprov-tipo" readonly style="background:var(--gray-50);color:var(--gray-500)"></div>
   <div class="fg"><label class="flbl">Referência</label><input class="fi" id="cprov-ref" readonly style="background:var(--gray-50);color:var(--gray-500)"></div>
-  <div class="fg"><label class="flbl">Link do comprovante (Google Drive)</label><input class="fi" id="cprov-url" placeholder="https://drive.google.com/file/d/..."></div>
-  <div id="cprov-preview" style="display:none;margin-top:8px">
-    <a id="cprov-preview-link" target="_blank" style="font-size:12px;color:#0369A1;display:flex;align-items:center;gap:5px"><i class="ti ti-external-link"></i> Visualizar comprovante atual</a>
-  </div>
+  <label class="flbl">Comprovantes anexados</label>
+  <div id="cprov-links-list" style="margin-bottom:8px"></div>
+  <button class="btn btn-ghost btn-sm" onclick="adicionarLinkComprovante()"><i class="ti ti-plus"></i> Adicionar outro comprovante</button>
   <input type="hidden" id="cprov-vid">
   <input type="hidden" id="cprov-idx">
   <input type="hidden" id="cprov-tipo-code">
 </div>
-<div class="mftr"><button class="btn btn-ghost" onclick="cov('ov-comprov')">Cancelar</button><button class="btn" style="background:#0369A1;color:#fff" onclick="salvarComprovante()"><i class="ti ti-check"></i> Salvar link</button></div></div></div>
+<div class="mftr"><button class="btn btn-ghost" onclick="cov('ov-comprov')">Cancelar</button><button class="btn" style="background:#0369A1;color:#fff" onclick="salvarComprovante()"><i class="ti ti-check"></i> Salvar</button></div></div></div>
 
 <!-- MODAL USUÁRIO FINANCEIRO -->
 <div class="ov" id="ov-fin-usr"><div class="modal"><div class="mhdr" style="background:#166534"><h3 id="fin-usr-modal-title"><i class="ti ti-user-plus"></i> Novo Usuário Financeiro</h3><button class="xbtn" onclick="cov('ov-fin-usr')"><i class="ti ti-x"></i></button></div>
@@ -1085,6 +1084,15 @@ tr:hover td{background:var(--gray-50)}
                   <div class="fg" style="margin:0;flex:1"><label class="flbl">Alertar quando o saldo chegar a</label><input type="number" step="0.01" class="fi" id="cartao-limite-input"></div>
                   <button class="btn btn-ghost btn-sm" onclick="salvarLimiteAlerta()"><i class="ti ti-device-floppy"></i> Salvar</button>
                 </div>
+              </div>
+            </div>
+            <div style="background:#fff;border-radius:var(--r14);border:1.5px solid var(--gray-200);padding:18px;margin-bottom:14px">
+              <div style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Debitar abastecimento já lançado (retroativo)</div>
+              <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px">Use isto para descontar do saldo um abastecimento que foi registrado antes de o cartão estar configurado.</div>
+              <div style="display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px;align-items:end">
+                <div class="fg" style="margin:0"><label class="flbl">Veículo</label><select class="fi" id="cartao-retro-vei" onchange="popularAbastecimentosRetro()"><option value="">Selecione</option></select></div>
+                <div class="fg" style="margin:0"><label class="flbl">Abastecimento</label><select class="fi" id="cartao-retro-abast"><option value="">Selecione o veículo primeiro</option></select></div>
+                <button class="btn btn-danger btn-sm" onclick="debitarAbastecimentoRetro()"><i class="ti ti-minus"></i> Debitar</button>
               </div>
             </div>
             <div class="fin-chart-box">
@@ -3404,6 +3412,26 @@ function renderFinanceiro(){
 }
 
 /* COMPROVANTES */
+// Extrai a lista de comprovantes de um item, com compatibilidade pra dados
+// antigos que só tinham o campo único "comprovante" (string)
+function _comprovantesDoItem(item){
+  if(!item)return[];
+  if(Array.isArray(item.comprovantes)&&item.comprovantes.length)return item.comprovantes;
+  if(item.comprovante)return[{label:'',url:item.comprovante}];
+  return[];
+}
+function _novaLinhaComprovante(label,url){
+  const div=document.createElement('div');
+  div.setAttribute('data-link-row','');
+  div.style.cssText='display:flex;gap:8px;align-items:flex-end;margin-bottom:8px';
+  div.innerHTML=`<div class="fg" style="margin:0;flex:1"><label class="flbl">Descrição (opcional)</label><input class="fi cprov-label" placeholder="Ex: Nota fiscal — Serviço" value="${esc(label||'')}"></div>
+    <div class="fg" style="margin:0;flex:2"><label class="flbl">Link (Google Drive)</label><input class="fi cprov-link" placeholder="https://drive.google.com/file/d/..." value="${esc(url||'')}"></div>
+    <button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" title="Remover" style="margin-bottom:1px"><i class="ti ti-trash"></i></button>`;
+  return div;
+}
+function adicionarLinkComprovante(){
+  $('cprov-links-list').appendChild(_novaLinhaComprovante('',''));
+}
 function abrirComprovante(vid,idx,tipo){
   const v=veiculos.find(x=>String(x.id)===String(vid));
   let item,tipoLabel,refLabel;
@@ -3412,12 +3440,17 @@ function abrirComprovante(vid,idx,tipo){
   else{item=(v.outros_custos||[])[idx];tipoLabel='Comprovante — Outro custo';refLabel=item?fmt(item.data)+' · '+(OC_CAT[item.cat]||item.cat)+' · R$ '+(item.valor||0).toFixed(2):'';}
   $('cprov-tipo').value=tipoLabel;
   $('cprov-ref').value=refLabel;
-  $('cprov-url').value=item?.comprovante||'';
   $('cprov-vid').value=vid;
   $('cprov-idx').value=idx;
   $('cprov-tipo-code').value=tipo;
-  const prev=$('cprov-preview');
-  if(item?.comprovante){$('cprov-preview-link').href=item.comprovante;prev.style.display='';}else{prev.style.display='none';}
+  const listEl=$('cprov-links-list');
+  listEl.innerHTML='';
+  const links=_comprovantesDoItem(item);
+  if(links.length){
+    links.forEach(l=>listEl.appendChild(_novaLinhaComprovante(l.label,l.url)));
+  }else{
+    listEl.appendChild(_novaLinhaComprovante('',''));
+  }
   ov('ov-comprov');
 }
 
@@ -3425,21 +3458,27 @@ async function salvarComprovante(){
   const vid=$('cprov-vid').value;
   const idx=parseInt($('cprov-idx').value);
   const tipo=$('cprov-tipo-code').value;
-  const url=$('cprov-url').value.trim();
+  const linhas=[...document.querySelectorAll('#cprov-links-list [data-link-row]')];
+  const comprovantes=linhas.map(row=>({
+    label:row.querySelector('.cprov-label').value.trim(),
+    url:row.querySelector('.cprov-link').value.trim()
+  })).filter(c=>c.url);
   const v=veiculos.find(x=>String(x.id)===String(vid));
   let campo,lista;
   if(tipo==='abast'){campo='abastecimentos';lista=[...(v.abastecimentos||[])];}
   else if(tipo==='manut'){campo='manutencoes';lista=[...(v.manutencoes||[])];}
   else{campo='outros_custos';lista=[...(v.outros_custos||[])];}
   if(!lista[idx]){toast('Item não encontrado.','err');return;}
-  lista[idx]={...lista[idx],comprovante:url||null};
+  // "comprovante" (campo antigo) fica sincronizado com o 1º link, pra manter
+  // compatibilidade com relatórios e telas que ainda checam esse campo único
+  lista[idx]={...lista[idx],comprovantes,comprovante:comprovantes[0]?.url||null};
   const{error}=await SB.from('veiculos').update({[campo]:lista}).eq('id',vid);
   if(error){toast('Erro: '+error.message,'err');return;}
   cov('ov-comprov');
   await loadData();
   if($('s-fin').classList.contains('on'))renderFinanceiro();
   else renderCustos();
-  toast(url?'Comprovante salvo!':'Comprovante removido.','ok');
+  toast(comprovantes.length?`✓ ${comprovantes.length} comprovante(s) salvo(s)!`:'Comprovantes removidos.','ok');
 }
 
 /* GESTÃO DE USUÁRIOS FINANCEIROS */
@@ -3858,6 +3897,10 @@ async function _setSaldoCartao(novoSaldo,tipo,valorMovimento,descricao,veiculoId
 }
 
 function renderCartaoAdm(){
+  const veiSel=$('cartao-retro-vei');
+  if(veiSel&&veiSel.options.length<=1){
+    veiculos.forEach(v=>{const o=document.createElement('option');o.value=v.id;o.textContent=v.nome+' ('+v.placa+')';veiSel.appendChild(o);});
+  }
   const valEl=$('cartao-saldo-val');
   const hEl=$('cartao-historico');
   if(!cartaoData){
@@ -3958,6 +4001,39 @@ async function salvarLimiteAlerta(p){
   if(error){toast('Erro: '+error.message,'err');return}
   await loadCartao();_renderCartaoAmbos();
   toast('Limite de alerta atualizado.','ok');
+}
+// Preenche o select de abastecimentos daquele veículo (mostra os mais recentes primeiro)
+function popularAbastecimentosRetro(){
+  const vid=$('cartao-retro-vei').value;
+  const sel=$('cartao-retro-abast');
+  sel.innerHTML='<option value="">Selecione</option>';
+  if(!vid)return;
+  const v=veiculos.find(x=>String(x.id)===String(vid));
+  const abasts=(v?.abastecimentos||[]).map((a,idx)=>({...a,_idx:idx})).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  abasts.forEach(a=>{
+    const o=document.createElement('option');
+    o.value=a._idx;
+    o.textContent=`${fmt(a.data)} · ${FUEL_MAP[a.tipo]||a.tipo||''} · R$ ${(a.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}${a.posto?' · '+a.posto:''}`;
+    sel.appendChild(o);
+  });
+  if(!abasts.length)sel.innerHTML='<option value="">Nenhum abastecimento registrado</option>';
+}
+async function debitarAbastecimentoRetro(){
+  const vid=$('cartao-retro-vei').value;
+  const idx=$('cartao-retro-abast').value;
+  if(!vid||idx===''){toast('Selecione o veículo e o abastecimento.','err');return}
+  const v=veiculos.find(x=>String(x.id)===String(vid));
+  const entrada=(v?.abastecimentos||[])[parseInt(idx)];
+  if(!entrada){toast('Abastecimento não encontrado.','err');return}
+  if(!confirm(`Confirmar débito retroativo de R$ ${(entrada.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} (${v.nome}, ${fmt(entrada.data)})?`))return;
+  if(!cartaoData) await loadCartao();
+  const saldoAtual=parseFloat(cartaoData?.saldo_atual)||0;
+  const novoSaldo=saldoAtual-(entrada.valor||0);
+  const ok=await _setSaldoCartao(novoSaldo,'debito_abastecimento',-(entrada.valor||0),`${v.nome} — abastecimento retroativo de ${fmt(entrada.data)}`,vid);
+  if(!ok){toast('Erro ao registrar débito retroativo.','err',7000);return}
+  await loadCartao();_renderCartaoAmbos();
+  $('cartao-retro-vei').value='';$('cartao-retro-abast').innerHTML='<option value="">Selecione o veículo primeiro</option>';
+  toast('✓ Débito retroativo registrado!','ok');
 }
 
 function renderFinDashAdm(){

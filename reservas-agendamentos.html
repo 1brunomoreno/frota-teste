@@ -4868,7 +4868,7 @@ function renderAvisosBar(){
       <i class="ti ${c.ic}" style="color:${c.txt};font-size:17px;flex-shrink:0;margin-top:1px"></i>
       <div style="flex:1">
         <div style="font-family:var(--fh);font-size:13px;font-weight:700;color:${c.txt}">${a.titulo}</div>
-        ${a.mensagem?`<div style="font-size:12px;color:${c.txt};opacity:.85;margin-top:2px">${a.mensagem}</div>`:''}
+        ${a.mensagem?`<div style="font-size:12px;color:${c.txt};opacity:.85;margin-top:2px;white-space:pre-line">${a.mensagem}</div>`:''}
       </div>
       ${a.expira_em?`<div style="font-size:10px;color:${c.txt};opacity:.6;white-space:nowrap">até ${fmt(a.expira_em)}</div>`:''}
     </div>`;
@@ -4886,7 +4886,7 @@ function renderAvisosAdm(){
     return`<div style="background:${expirado?'var(--gray-50)':c.bg};border-radius:var(--r10);padding:11px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;border:1px solid var(--gray-200);opacity:${expirado?'.5':'1'}">
       <div style="flex:1">
         <div style="font-family:var(--fh);font-size:13px;font-weight:700;color:${expirado?'var(--gray-500)':c.txt}">${a.titulo} ${expirado?'<span style="font-size:10px;font-weight:400">(expirado)</span>':''}</div>
-        ${a.mensagem?`<div style="font-size:12px;color:var(--gray-500);margin-top:2px">${a.mensagem}</div>`:''}
+        ${a.mensagem?`<div style="font-size:12px;color:var(--gray-500);margin-top:2px;white-space:pre-line">${a.mensagem}</div>`:''}
         <div style="font-size:10px;color:var(--gray-400);margin-top:4px">Publicado em ${fmt(a.criado_em?.slice(0,10))}${a.expira_em?' · Expira: '+fmt(a.expira_em):' · Sem expiração'}</div>
       </div>
       <button class="btn btn-danger btn-sm" onclick="delAviso(${a.id})" style="flex-shrink:0"><i class="ti ti-trash"></i></button>

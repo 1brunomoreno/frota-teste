@@ -1446,6 +1446,15 @@ const TODAY=new Date().toISOString().split('T')[0];
 const NOW=new Date().toTimeString().slice(0,5);
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DOWS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+// Km total percorrido numa reserva — soma as diárias arquivadas (reservas de
+// múltiplos dias) mais a diária ativa/final, evitando contar só o último trecho
+function _ckKmTotal(r){
+  const ck=r.checklist||{};
+  let total=0;
+  if(Array.isArray(ck.dias))total+=ck.dias.reduce((s,d)=>s+((d.saida_km&&d.retorno_km)?Math.max(0,d.retorno_km-d.saida_km):0),0);
+  if(ck.saida_km&&ck.retorno_km)total+=Math.max(0,ck.retorno_km-ck.saida_km);
+  return total;
+}
 const RESERVA_BUFFER_MIN=20; // margem mínima obrigatória entre reservas do mesmo veículo
 // Normaliza qualquer horário pra "HH:MM" — o Supabase devolve colunas do tipo
 // time com segundos (ex: "06:00:00"), o que quebrava as comparações abaixo
@@ -2134,14 +2143,36 @@ async function salvarRetorno(){
   if(ckAbast) conds.push('abastecimento');
 
   const r=reservas.find(x=>x.id===rid);
-  const ck={...(r.checklist||{}),retorno_data:$('rt-data').value,retorno_hora:$('rt-hora').value,retorno_km:km,retorno_cond:conds.join(','),retorno_obs:obs};
-  const{error}=await SB.from('reservas').update({checklist:ck,status:'concluido'}).eq('id',rid);
+  const retornoData=$('rt-data').value;
+  // Reserva de múltiplos dias: se ainda restam dias no período, arquiva o
+  // checklist de hoje no histórico e reabre pro próximo dia, sem concluir
+  // a reserva inteira. Só finaliza de verdade no último dia do período.
+  const ehMultiDia=r.data_saida!==r.data_retorno;
+  const ehUltimoDia=retornoData>=r.data_retorno;
+  let ck,novoStatus;
+  if(ehMultiDia&&!ehUltimoDia){
+    const diaConcluido={
+      data:r.checklist?.saida_data||TODAY,
+      saida_hora:r.checklist?.saida_hora,saida_km:r.checklist?.saida_km,
+      saida_cond:r.checklist?.saida_cond,saida_obs:r.checklist?.saida_obs,
+      retorno_data:retornoData,retorno_hora:$('rt-hora').value,retorno_km:km,
+      retorno_cond:conds.join(','),retorno_obs:obs
+    };
+    const diasAnteriores=Array.isArray(r.checklist?.dias)?r.checklist.dias:[];
+    ck={dias:[...diasAnteriores,diaConcluido]}; // limpa os campos ativos — pronto pro checklist do próximo dia
+    novoStatus='aprovado';
+  }else{
+    ck={...(r.checklist||{}),retorno_data:retornoData,retorno_hora:$('rt-hora').value,retorno_km:km,retorno_cond:conds.join(','),retorno_obs:obs};
+    novoStatus='concluido';
+  }
+  const{error}=await SB.from('reservas').update({checklist:ck,status:novoStatus}).eq('id',rid);
   if(error){toast('Erro: '+(error.message||error.code),'err');return}
   const v=veiculos.find(x=>x.id===r.veiculo_id);
   if(v&&km>(v.km_atual||0))await SB.from('veiculos').update({km_atual:km}).eq('id',v.id);
   cov('ov-ret');await loadData();renderAll();buscarCK();
   // Alerta especial de abastecimento
   if(ckAbast) toast('⛽ '+v?.nome+' precisa de abastecimento! Verifique no painel.','warn',7000);
+  else if(ehMultiDia&&!ehUltimoDia) toast('✓ Retorno do dia registrado! '+(km-kmSai).toLocaleString('pt-BR')+' km percorridos. A reserva continua ativa para os próximos dias.','ok',6500);
   else toast('✓ Retorno registrado! '+(km-kmSai).toLocaleString('pt-BR')+' km percorridos.','ok');
 }
 
@@ -2609,25 +2640,29 @@ function renderRel(){
       ${[['Motoristas',mots.length,'no período'],['Viagens',rv.length,'realizadas'],['Km atual',(v.km_atual||0).toLocaleString('pt-BR'),'hodômetro'],['Próx. óleo',v.proxima_troca_oleo_km?.toLocaleString('pt-BR')||'—',v.proxima_troca_oleo_km&&v.km_atual?(v.proxima_troca_oleo_km-v.km_atual).toLocaleString('pt-BR')+' km':''],['Últ. troca',fmt(v.ultima_troca_oleo),''],['Status',v.status==='manutencao'?'Manutenção':'Operacional','']].map(([l,n,s])=>`<div style="background:var(--gray-50);border-radius:var(--r10);padding:10px 12px;border:1.5px solid var(--gray-200)"><div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">${l}</div><div style="font-family:var(--fh);font-size:15px;font-weight:700">${n}</div>${s?`<div style="font-size:10px;color:var(--gray-400)">${s}</div>`:''}</div>`).join('')}
     </div>
     <div style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Checklists de viagem</div>
-    ${rv.filter(r=>r.checklist&&r.checklist.saida_hora).length?rv.filter(r=>r.checklist&&r.checklist.saida_hora).map(r=>{
+    ${rv.filter(r=>r.checklist&&(r.checklist.saida_hora||(Array.isArray(r.checklist.dias)&&r.checklist.dias.length))).length?rv.filter(r=>r.checklist&&(r.checklist.saida_hora||(Array.isArray(r.checklist.dias)&&r.checklist.dias.length))).map(r=>{
       const ck=r.checklist||{};
+      const diasArquivados=Array.isArray(ck.dias)?ck.dias:[];
       const kmR=ck.retorno_km&&ck.saida_km?ck.retorno_km-ck.saida_km:null;
-      const temAvaria=(ck.saida_cond==='avaria'&&ck.saida_obs)||(ck.retorno_cond&&(ck.retorno_cond.includes('avaria')||ck.retorno_cond.includes('abastecimento'))&&ck.retorno_obs);
+      const temAvaria=(ck.saida_cond==='avaria'&&ck.saida_obs)||(ck.retorno_cond&&(ck.retorno_cond.includes('avaria')||ck.retorno_cond.includes('abastecimento'))&&ck.retorno_obs)||diasArquivados.some(d=>(d.saida_cond==='avaria'&&d.saida_obs)||(d.retorno_cond&&(d.retorno_cond.includes('avaria')||d.retorno_cond.includes('abastecimento'))&&d.retorno_obs));
+      const linhaDia=(d,corrigivel)=>`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px;margin-bottom:4px">
+          <div><span style="color:var(--gray-400)">Saída ${d.data?'('+fmt(d.data)+')':''}:</span> ${d.saida_hora||'—'} · ${(d.saida_km||0).toLocaleString('pt-BR')} km</div>
+          <div><span style="color:var(--gray-400)">Retorno:</span> ${d.retorno_hora||'—'} · ${d.retorno_km?(d.retorno_km).toLocaleString('pt-BR')+' km':'—'}</div>
+          <div><span style="color:var(--gray-400)">Percorrido:</span> ${(d.saida_km&&d.retorno_km)?(d.retorno_km-d.saida_km).toLocaleString('pt-BR')+' km':'—'}</div>
+        </div>
+        ${d.saida_cond==='avaria'&&d.saida_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-bottom:4px"><i class="ti ti-alert-triangle"></i> <strong>Avaria na saída:</strong> ${esc(d.saida_obs)}</div>`:''}
+        ${d.retorno_cond&&(d.retorno_cond.includes('avaria')||d.retorno_cond.includes('abastecimento'))&&d.retorno_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-bottom:4px"><i class="ti ti-alert-triangle"></i> <strong>${d.retorno_cond.includes('avaria')?'Avaria no retorno':'Abastecimento'}:</strong> ${esc(d.retorno_obs)}</div>`:''}`;
       return`<div style="background:#fff;border:1.5px solid var(--gray-200);border-radius:var(--r10);padding:12px 14px;margin-bottom:8px${temAvaria?';border-left:3px solid var(--danger)':''}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div style="font-weight:600;font-size:13px;font-family:var(--fh)">${esc(r.responsavel)}</div>
+          <div style="font-weight:600;font-size:13px;font-family:var(--fh)">${esc(r.responsavel)}${diasArquivados.length?' <span style="font-weight:400;color:var(--gray-400);font-size:11px">· reserva de '+(diasArquivados.length+(ck.saida_hora?1:0))+' dia(s) registrado(s)</span>':''}</div>
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:11px;color:var(--gray-400)">${fmt(r.data_saida)}</span>
-            <button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:10px;color:#7C3AED;border-color:#DDD6FE" onclick="abrirCorrecaoCkKm(${r.id})" title="Corrigir km"><i class="ti ti-pencil" style="font-size:11px"></i> km</button>
+            <span style="font-size:11px;color:var(--gray-400)">${fmt(r.data_saida)}${r.data_retorno!==r.data_saida?' → '+fmt(r.data_retorno):''}</span>
+            ${ck.saida_hora?`<button class="btn btn-ghost btn-sm" style="padding:2px 7px;font-size:10px;color:#7C3AED;border-color:#DDD6FE" onclick="abrirCorrecaoCkKm(${r.id})" title="Corrigir km"><i class="ti ti-pencil" style="font-size:11px"></i> km</button>`:''}
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px;margin-bottom:${temAvaria?'8px':'0'}">
-          <div><span style="color:var(--gray-400)">Saída:</span> ${ck.saida_hora||'—'} · ${(ck.saida_km||0).toLocaleString('pt-BR')} km</div>
-          <div><span style="color:var(--gray-400)">Retorno:</span> ${ck.retorno_hora||'—'} · ${ck.retorno_km?(ck.retorno_km).toLocaleString('pt-BR')+' km':'—'}</div>
-          <div><span style="color:var(--gray-400)">Percorrido:</span> ${kmR!==null?kmR.toLocaleString('pt-BR')+' km':'—'}</div>
-        </div>
-        ${ck.saida_cond==='avaria'&&ck.saida_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-top:6px"><i class="ti ti-alert-triangle"></i> <strong>Avaria na saída:</strong> ${esc(ck.saida_obs)}</div>`:''}
-        ${ck.retorno_cond&&(ck.retorno_cond.includes('avaria')||ck.retorno_cond.includes('abastecimento'))&&ck.retorno_obs?`<div style="background:#FEF2F2;border-radius:6px;padding:6px 10px;font-size:11px;color:var(--danger);margin-top:4px"><i class="ti ti-alert-triangle"></i> <strong>${ck.retorno_cond.includes('avaria')?'Avaria no retorno':'Abastecimento'}:</strong> ${esc(ck.retorno_obs)}</div>`:''}
+        ${diasArquivados.map(d=>linhaDia(d)).join('<div class="ck-divider" style="margin:6px 0"></div>')}
+        ${diasArquivados.length&&ck.saida_hora?'<div class="ck-divider" style="margin:6px 0"></div>':''}
+        ${ck.saida_hora?linhaDia(ck):(!diasArquivados.length?'<div style="font-size:12px;color:var(--gray-400)">Aguardando início do checklist.</div>':'')}
       </div>`;
     }).join(''):`<div style="font-size:13px;color:var(--gray-400);margin-bottom:14px">Nenhum checklist registrado no período.</div>`}
     <div style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.7px;margin:12px 0 8px">Ocorrências <button class="btn btn-danger btn-sm" onclick="abrirProb('${v.id}')"><i class="ti ti-plus"></i>Registrar</button></div>
@@ -3612,7 +3647,7 @@ function _calcFinData(fv, mes, tipoComb, tipoManut, catOc){
     const custoOutros=outros.reduce((s,o)=>s+(o.valor||0),0);
     const total=custoAbast+custoManut+custoMultas+custoOutros;
     // Km rodado no período — soma de (retorno_km - saida_km) dos checklists concluídos deste veículo
-    const kmRodado=reservas.filter(r=>r.veiculo_id===v.id&&r.checklist?.saida_km&&r.checklist?.retorno_km&&(!de||r.data_saida>=de)&&(!ate||r.data_saida<=ate)).reduce((s,r)=>s+Math.max(0,(r.checklist.retorno_km-r.checklist.saida_km)),0);
+    const kmRodado=reservas.filter(r=>r.veiculo_id===v.id&&(!de||r.data_saida>=de)&&(!ate||r.data_saida<=ate)).reduce((s,r)=>s+_ckKmTotal(r),0);
     grandTotal+=total;totalComb+=custoAbast;totalMnt+=custoManut;totalMultas+=custoMultas;totalOtros+=custoOutros;qtdMultas+=multas.length;kmRodadoTotal+=kmRodado;
     return{v,abasts,custoAbast,cplMedio,sumLit,mnts,custoManut,multas,custoMultas,outros,custoOutros,total,kmRodado};
   });
@@ -4784,7 +4819,7 @@ function renderDashboard(){
   const aprovadas=reservas.filter(r=>r.status==='aprovado'||r.status==='concluido').length;
   const pendentes=reservas.filter(r=>r.status==='pendente').length;
   const concluidas=reservas.filter(r=>r.status==='concluido').length;
-  const kmTotal=reservas.filter(r=>r.checklist?.retorno_km&&r.checklist?.saida_km).reduce((s,r)=>s+(r.checklist.retorno_km-r.checklist.saida_km),0);
+  const kmTotal=reservas.reduce((s,r)=>s+_ckKmTotal(r),0);
   const taxa=total?Math.round((aprovadas/total)*100):0;
   const kpis=[
     {l:'Total de reservas',v:total,ic:'ti-calendar',cor:'#1565C0'},

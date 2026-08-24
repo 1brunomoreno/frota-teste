@@ -1953,11 +1953,22 @@ function buscarCK(){
 function ckCard(r){
   const v=veiculos.find(x=>x.id===r.veiculo_id);
   const ck=r.checklist||{};
+  // Reserva de múltiplos dias: se o trecho de hoje já foi arquivado (saída e
+  // retorno concluídos), não libera novo checklist até o próximo dia
+  const diasArquivados=Array.isArray(ck.dias)?ck.dias:[];
+  const jaConcluidoHoje=diasArquivados.some(d=>d.data===TODAY);
+  const aindaHaDiasFuturos=r.data_retorno>TODAY;
   let stCls,stLbl;
   if(ck.retorno_hora){stCls='ck-conc';stLbl='✅ Concluída';}
   else if(ck.saida_hora){stCls='ck-viagem';stLbl='🚗 Em viagem';}
+  else if(jaConcluidoHoje&&aindaHaDiasFuturos){stCls='ck-conc';stLbl='✅ Concluído hoje';}
   else{stCls='ck-aguard';stLbl='⏳ Aguardando saída';}
   let body='';
+  if(jaConcluidoHoje&&aindaHaDiasFuturos&&!ck.saida_hora){
+    const diaHoje=diasArquivados.find(d=>d.data===TODAY);
+    const kmRHoje=diaHoje?.saida_km&&diaHoje?.retorno_km?diaHoje.retorno_km-diaHoje.saida_km:null;
+    body+=`<div class="ck-section"><i class="ti ti-circle-check" style="color:var(--green2)"></i>Trecho de hoje</div><div class="ck-info-grid"><div class="ck-field"><span class="ck-lbl">Saída → Retorno</span><span class="ck-val">${diaHoje?.saida_hora||'—'} → ${diaHoje?.retorno_hora||'—'}</span></div><div class="ck-field"><span class="ck-lbl">Km percorrido</span><span class="ck-val">${kmRHoje!==null?kmRHoje.toLocaleString('pt-BR'):'—'}</span></div></div>`;
+  }
   if(ck.saida_hora){
     body+=`<div class="ck-section"><i class="ti ti-logout"></i>Saída</div><div class="ck-info-grid"><div class="ck-field"><span class="ck-lbl">Data/Hora</span><span class="ck-val">${fmt(ck.saida_data)} ${ck.saida_hora}</span></div><div class="ck-field"><span class="ck-lbl">Km saída</span><span class="ck-val">${(ck.saida_km||0).toLocaleString('pt-BR')}</span></div></div>`;
     if(ck.saida_cond==='avaria'&&ck.saida_obs)body+=`<div class="ck-avaria"><i class="ti ti-alert-triangle" style="flex-shrink:0"></i><span><strong>Avaria na saída:</strong> ${esc(ck.saida_obs)}</span></div>`;
@@ -1973,7 +1984,8 @@ function ckCard(r){
     if(kmR!==null)body+=`<div><span style="font-size:12px;color:var(--gray-400)">Total percorrido:</span> <span class="ck-km-badge"><i class="ti ti-road"></i> ${kmR.toLocaleString('pt-BR')} km</span></div>`;
   }
   let btns='';
-  if(!ck.saida_hora)btns=`<button class="ck-big-btn ck-saida-btn" onclick="abrirSaida(${r.id})"><i class="ti ti-logout"></i> Registrar Saída</button>`;
+  if(jaConcluidoHoje&&aindaHaDiasFuturos&&!ck.saida_hora)btns=`<div style="text-align:center;padding:6px;font-size:13px;color:var(--green2);font-weight:600;font-family:var(--fh)"><i class="ti ti-circle-check"></i> Trecho de hoje concluído — volte amanhã para continuar</div>`;
+  else if(!ck.saida_hora)btns=`<button class="ck-big-btn ck-saida-btn" onclick="abrirSaida(${r.id})"><i class="ti ti-logout"></i> Registrar Saída</button>`;
   else if(!ck.retorno_hora)btns=`<button class="ck-big-btn ck-retorno-btn" onclick="abrirRetorno(${r.id})"><i class="ti ti-login"></i> Registrar Retorno</button>`;
   else btns=`<div style="text-align:center;padding:6px;font-size:13px;color:var(--green2);font-weight:600;font-family:var(--fh)"><i class="ti ti-circle-check"></i> Viagem concluída!</div>`;
   return`<div class="ck-card"><div class="ck-card-top"><div><div class="ck-card-name"><i class="ti ti-car" style="color:var(--blue)"></i> ${v?.nome||'?'} <span style="font-family:monospace;font-size:10px;color:var(--gray-400)">${v?.placa||''}</span></div><div class="ck-card-sub">${fmt(r.data_saida)} ${r.hora_saida?r.hora_saida+' → '+r.hora_retorno:''} · ${esc(r.destino)}</div></div><span class="ck-status ${stCls}">${stLbl}</span></div>${body||btns?`<div class="ck-body">${body}${body&&btns?'<div class="ck-divider"></div>':''}<div class="ck-btn-row">${btns}</div></div>`:''}</div>`;

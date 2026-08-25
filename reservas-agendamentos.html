@@ -2527,6 +2527,14 @@ async function salvarEditRes(){
   const novoStatus=$('er-st').value;
   const dataSaida=$('er-data').value,dataRet=$('er-data-ret').value||dataSaida;
   if(dataRet<dataSaida){toast('A data de retorno não pode ser anterior à data de saída.','err');return}
+  // Trava de segurança: reserva de múltiplos dias só pode ser marcada como
+  // "Concluído" quando o checklist do último dia realmente foi registrado —
+  // impede fechar a reserva inteira manualmente antes da hora e "perder" os
+  // dias restantes (foi exatamente isso que causou o bug corrigido antes).
+  if(novoStatus==='concluido'&&dataRet!==dataSaida&&!resAtual?.checklist?.retorno_hora){
+    toast('Essa é uma reserva de múltiplos dias — a conclusão deve acontecer pelo checklist de retorno do último dia, não por aqui. Deixe como "Aprovado".','err',8000);
+    return;
+  }
   const mudouStatus=resAtual&&resAtual.status!==novoStatus;
   const novoHistorico=mudouStatus?_addHistorico(resAtual?.historico,'editado → '+novoStatus,''):(resAtual?.historico||[]);
   const{error}=await SB.from('reservas').update({veiculo_id:$('er-vei').value,status:novoStatus,departamento:$('er-dep').value.trim(),responsavel:$('er-resp').value.trim(),data_saida:dataSaida,data_retorno:dataRet,hora_saida:$('er-hsai').value,hora_retorno:$('er-hret').value,destino:$('er-dst').value.trim(),feedback:$('er-feed').value.trim(),historico:novoHistorico}).eq('id',id);

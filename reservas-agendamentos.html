@@ -283,7 +283,7 @@ textarea.fi{resize:vertical;min-height:68px}
 .cdn{font-size:11px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:2px}
 .cal-day.today-d .cdn{color:var(--blue);font-weight:800}
 .cpill{display:block;font-size:9px;padding:1px 4px;border-radius:3px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
-.cp-g{background:#D1FAE5;color:#065F46}.cp-a{background:#FEF3C7;color:#92400E}.cp-b{background:#DBEAFE;color:#1E40AF}
+.cp-g{background:#D1FAE5;color:#065F46}.cp-a{background:#FEF3C7;color:#92400E}.cp-b{background:#DBEAFE;color:#1E40AF}.cp-manut{background:#FED7AA;color:#9A3412}
 .cal-legend{display:flex;gap:12px;flex-wrap:wrap;padding:8px 16px 12px;border-top:1px solid var(--gray-100)}
 .cl-i{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gray-500)}
 .cl-d{width:7px;height:7px;border-radius:50%}
@@ -936,6 +936,7 @@ tr:hover td{background:var(--gray-50)}
             <div style="display:flex;gap:6px;align-items:flex-end">
               <button class="btn btn-p btn-sm" onclick="renderManutencaoAdm()"><i class="ti ti-search"></i> Filtrar</button>
               <button class="btn btn-g btn-sm" onclick="abrirManutAdm()"><i class="ti ti-plus"></i> Registrar</button>
+              <button class="btn btn-sm" style="background:#D97706;color:#fff" onclick="abrirBloqueioManut()"><i class="ti ti-lock"></i> Bloquear agenda</button>
             </div>
           </div>
           <div id="mn2-resumo" style="display:none;margin-bottom:12px"></div>
@@ -1186,6 +1187,21 @@ tr:hover td{background:var(--gray-50)}
 <div class="ov" id="ov-dia-cal"><div class="modal lg"><div class="mhdr"><h3 id="dia-cal-tit">Reservas do dia</h3><button class="xbtn" onclick="cov('ov-dia-cal')"><i class="ti ti-x"></i></button></div>
 <div class="mbody" id="dia-cal-body"></div>
 <div class="mftr"><button class="btn btn-ghost" onclick="cov('ov-dia-cal')">Fechar</button></div></div></div>
+
+<div class="ov" id="ov-bloqueio"><div class="modal"><div class="mhdr" style="background:#D97706"><h3><i class="ti ti-lock"></i> Bloquear Agenda para Manutenção</h3><button class="xbtn" onclick="cov('ov-bloqueio')"><i class="ti ti-x"></i></button></div>
+<div class="mbody">
+  <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:var(--r10);padding:10px 14px;margin-bottom:14px;font-size:12px;color:#92400E;display:flex;gap:8px">
+    <i class="ti ti-info-circle" style="flex-shrink:0;margin-top:1px"></i>
+    <span>Bloqueia a agenda do veículo no período informado — ninguém consegue reservá-lo nessas datas. Se já existir uma reserva aprovada no período, o bloqueio será recusado (resolva a reserva antes).</span>
+  </div>
+  <div class="fg"><label class="flbl">Veículo</label><select class="fi" id="bq-vei"></select></div>
+  <div class="g2">
+    <div class="fg"><label class="flbl">Data início</label><input type="date" class="fi" id="bq-de"></div>
+    <div class="fg"><label class="flbl">Data fim</label><input type="date" class="fi" id="bq-ate"></div>
+  </div>
+  <div class="fg"><label class="flbl">Motivo</label><input class="fi" id="bq-motivo" placeholder="Ex: Revisão dos 40.000km"></div>
+</div>
+<div class="mftr"><button class="btn btn-ghost" onclick="cov('ov-bloqueio')">Cancelar</button><button class="btn" style="background:#D97706;color:#fff" onclick="salvarBloqueioManut()"><i class="ti ti-lock"></i> Bloquear</button></div></div></div>
 
 <div class="ov" id="ov-vei"><div class="modal"><div class="mhdr"><h3 id="vm-tit">Novo veículo</h3><button class="xbtn" onclick="cov('ov-vei')"><i class="ti ti-x"></i></button></div>
 <div class="mbody">
@@ -1670,6 +1686,9 @@ setInterval(async()=>{
 /* STATUS */
 function vSt(v){
   if(v.status==='manutencao')return{l:'Manutenção',cls:'b-mnt',bar:'vb-mnt',ic:'ti-tool'};
+  // Bloqueio de agenda pra manutenção programada, cobrindo hoje
+  const bloqueado=reservas.find(r=>r.status==='aprovado'&&r.veiculo_id===v.id&&_isManutBlock(r)&&r.data_saida<=TODAY&&r.data_retorno>=TODAY);
+  if(bloqueado)return{l:'Manutenção',cls:'b-mnt',bar:'vb-mnt',ic:'ti-tool'};
   // Em uso: checklist de saída já registrado e retorno ainda não — reflete a
   // situação real do veículo, mesmo que a viagem tenha passado do horário
   // previsto de retorno (evita voltar a mostrar "Disponível" por atraso).
@@ -1885,6 +1904,30 @@ _${primeiroNome} — ${dep}_`;
 }
 
 /* CALENDÁRIO */
+// Marcador usado pra identificar reservas que na verdade são bloqueios de
+// agenda pra manutenção programada (não são viagens reais)
+const MANUT_MARK='🔧 Manutenção Programada';
+function _isManutBlock(r){return r.responsavel===MANUT_MARK;}
+function abrirBloqueioManut(){
+  const s=$('bq-vei');
+  s.innerHTML=veiculos.map(v=>`<option value="${v.id}">${v.nome} (${v.placa})</option>`).join('');
+  $('bq-de').value=TODAY;$('bq-ate').value=TODAY;$('bq-motivo').value='';
+  ov('ov-bloqueio');
+}
+async function salvarBloqueioManut(){
+  const vid=$('bq-vei').value;
+  const de=$('bq-de').value,ate=$('bq-ate').value;
+  const motivo=$('bq-motivo').value.trim();
+  if(!vid||!de||!ate){toast('Preencha veículo e as datas.','err');return}
+  if(ate<de){toast('A data fim não pode ser anterior à data início.','err');return}
+  if(!motivo){toast('Informe o motivo do bloqueio.','err');return}
+  const v=veiculos.find(x=>String(x.id)===String(vid));
+  const{error}=await SB.from('reservas').insert([{veiculo_id:vid,departamento:'Facilities',responsavel:MANUT_MARK,contato:'',data_saida:de,data_retorno:ate,hora_saida:'00:00',hora_retorno:'23:59',destino:motivo,observacoes:'Bloqueio automático de agenda para manutenção programada.',status:'aprovado',feedback:'',checklist:{},criado_em:new Date().toISOString()}]).select();
+  if(error){toast(_msgErroReserva(error),'err',7000);return}
+  cov('ov-bloqueio');
+  await loadData();renderAll();renderAprov();
+  toast(`✓ Agenda de ${v?.nome} bloqueada de ${fmt(de)} a ${fmt(ate)}.`,'ok');
+}
 function renderCal(){
   $('cal-lbl').textContent=`${MONTHS[calM]} ${calY}`;
   const first=new Date(calY,calM,1),last=new Date(calY,calM+1,0).getDate(),sd=first.getDay();
@@ -1895,7 +1938,7 @@ function renderCal(){
     const isT=ds===TODAY;
     const isPast=ds<TODAY;
     const dr=reservas.filter(r=>r.status!=='negado'&&r.data_saida<=ds&&r.data_retorno>=ds);
-    const pills=dr.slice(0,3).map(r=>{const v=veiculos.find(x=>x.id===r.veiculo_id);const cl=r.status==='aprovado'?'cp-g':r.status==='pendente'?'cp-a':'cp-b';return`<span class="cpill ${cl}">${v?.nome||'?'} ${r.hora_saida?r.hora_saida:''}</span>`;}).join('')+(dr.length>3?`<span class="cpill cp-b">+${dr.length-3}</span>`:'');
+    const pills=dr.slice(0,3).map(r=>{const v=veiculos.find(x=>x.id===r.veiculo_id);const manut=_isManutBlock(r);const cl=manut?'cp-manut':r.status==='aprovado'?'cp-g':r.status==='pendente'?'cp-a':'cp-b';return`<span class="cpill ${cl}">${manut?'🔧 ':''}${v?.nome||'?'}${manut?'':' '+(r.hora_saida?r.hora_saida:'')}</span>`;}).join('')+(dr.length>3?`<span class="cpill cp-b">+${dr.length-3}</span>`:'');
     const cls='cal-day'+(isT?' today-d':isPast?' past-d':'')+' admin-clicavel';
     const onclick=`onclick="abrirDiaCal('${ds}')"`;
     h+=`<div class="${cls}" ${onclick}><span class="cdn">${d}</span>${pills}</div>`;
@@ -1911,6 +1954,13 @@ function _diaCalHtml(ds){
   if(!dr.length)return'<div class="empty"><i class="ti ti-calendar-off"></i><h4>Nenhuma reserva nesse dia</h4></div>';
   return dr.map(r=>{
     const v=veiculos.find(x=>x.id===r.veiculo_id);
+    const manut=_isManutBlock(r);
+    if(manut){
+      return`<div style="background:#FFF7ED;border-radius:var(--r10);padding:10px 13px;margin-bottom:8px;border:1px solid #FED7AA">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><span style="font-family:var(--fh);font-weight:600;font-size:13px;color:#9A3412"><i class="ti ti-tool"></i> ${v?.nome||'?'} — Manutenção Programada</span></div>
+        <div style="font-size:12px;color:#9A3412"><strong>Motivo:</strong> ${esc(r.destino)}</div>
+      </div>`;
+    }
     return`<div style="background:var(--gray-50);border-radius:var(--r10);padding:10px 13px;margin-bottom:8px;border:1px solid var(--gray-200)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font-family:var(--fh);font-weight:600;font-size:13px">${v?.nome||'?'} <span style="font-family:monospace;font-size:10px;color:var(--gray-400)">${v?.placa||''}</span></span>${rbadge(r.status)}</div>
       <div style="font-size:12px;color:var(--gray-500);display:flex;flex-direction:column;gap:2px">
@@ -2549,7 +2599,14 @@ function renderTodasRes(){
   let list=[...reservas];if(fv)list=list.filter(r=>r.veiculo_id==fv);if(fs)list=list.filter(r=>r.status===fs);
   list.sort((a,b)=>b.data_saida.localeCompare(a.data_saida));
   if(!list.length){$('todas-list').innerHTML='<div class="empty"><i class="ti ti-calendar-off"></i><h4>Nenhuma reserva</h4></div>';return}
-  $('todas-list').innerHTML=list.map(r=>{const v=veiculos.find(x=>x.id===r.veiculo_id);return`<div style="background:var(--gray-50);border-radius:var(--r10);border:1px solid var(--gray-200);padding:11px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px"><div><div style="font-family:var(--fh);font-weight:600;font-size:13px">${v?.nome||'?'}</div><div style="font-size:11px;color:var(--gray-400)">${fmt(r.data_saida)} ${r.hora_saida?r.hora_saida+'→'+r.hora_retorno:''}</div></div>${rbadge(r.status)}</div><div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">${esc(r.responsavel)} — ${esc(r.departamento)}<br>${esc(r.destino)}${r.feedback?`<br><em style="color:var(--blue3)">Feedback: ${esc(r.feedback)}</em>`:''}</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="abrirEditRes(${r.id})"><i class="ti ti-edit"></i>Editar</button><button class="btn btn-danger btn-sm" onclick="delRes(${r.id})"><i class="ti ti-trash"></i>Remover</button></div></div>`;}).join('');
+  $('todas-list').innerHTML=list.map(r=>{
+    const v=veiculos.find(x=>x.id===r.veiculo_id);
+    const manut=_isManutBlock(r);
+    if(manut){
+      return`<div style="background:#FFF7ED;border-radius:var(--r10);border:1px solid #FED7AA;padding:11px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px"><div><div style="font-family:var(--fh);font-weight:600;font-size:13px;color:#9A3412"><i class="ti ti-tool"></i> ${v?.nome||'?'} — Manutenção Programada</div><div style="font-size:11px;color:#9A3412">${fmt(r.data_saida)}${r.data_retorno!==r.data_saida?' → '+fmt(r.data_retorno):''}</div></div><span class="badge" style="background:#FED7AA;color:#9A3412">Bloqueio</span></div><div style="font-size:12px;color:#9A3412;margin-bottom:8px"><strong>Motivo:</strong> ${esc(r.destino)}</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="abrirEditRes(${r.id})"><i class="ti ti-edit"></i>Editar</button><button class="btn btn-danger btn-sm" onclick="delRes(${r.id})"><i class="ti ti-trash"></i>Remover bloqueio</button></div></div>`;
+    }
+    return`<div style="background:var(--gray-50);border-radius:var(--r10);border:1px solid var(--gray-200);padding:11px 13px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px"><div><div style="font-family:var(--fh);font-weight:600;font-size:13px">${v?.nome||'?'}</div><div style="font-size:11px;color:var(--gray-400)">${fmt(r.data_saida)} ${r.hora_saida?r.hora_saida+'→'+r.hora_retorno:''}</div></div>${rbadge(r.status)}</div><div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">${esc(r.responsavel)} — ${esc(r.departamento)}<br>${esc(r.destino)}${r.feedback?`<br><em style="color:var(--blue3)">Feedback: ${esc(r.feedback)}</em>`:''}</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="abrirEditRes(${r.id})"><i class="ti ti-edit"></i>Editar</button><button class="btn btn-danger btn-sm" onclick="delRes(${r.id})"><i class="ti ti-trash"></i>Remover</button></div></div>`;
+  }).join('');
 }
 async function delRes(id){if(!confirm('Remover esta reserva?'))return;const{error}=await SB.from('reservas').delete().eq('id',id);if(error){toast('Erro','err');return}await loadData();renderTodasRes();toast('Removida.','info');}
 

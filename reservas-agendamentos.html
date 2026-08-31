@@ -4903,6 +4903,8 @@ setInterval(()=>{if(currentUser)checkExpiracaoReservas();},5*60*1000);
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script>if(window.Chart&&window.ChartDataLabels){Chart.register(ChartDataLabels);Chart.defaults.set('plugins.datalabels',{display:false});}</script>
 <script>
 /* ============================================================
    DASHBOARD
@@ -4995,7 +4997,7 @@ function renderDashboard(){
   const mKeys=Object.keys(meses).sort().slice(-6);
   const mLabels=mKeys.map(m=>{const[y,mo]=m.split('-');return['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(mo)-1]+'/'+y.slice(2);});
   const ctx1=$('dash-chart-mes');
-  if(ctx1)_dashCharts.mes=new Chart(ctx1,{type:'bar',data:{labels:mLabels,datasets:[{label:'Reservas',data:mKeys.map(m=>meses[m]),backgroundColor:'#1565C020',borderColor:'#1565C0',borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+  if(ctx1)_dashCharts.mes=new Chart(ctx1,{type:'bar',data:{labels:mLabels,datasets:[{label:'Reservas',data:mKeys.map(m=>meses[m]),backgroundColor:'#1565C020',borderColor:'#1565C0',borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'top',color:'#1565C0',font:{weight:700,size:11},formatter:v=>v||''}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
 
   // Chart 2: Uso por veículo
   const vCount={};
@@ -5007,20 +5009,20 @@ function renderDashboard(){
   const vEntries=Object.entries(vCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const ctx2=$('dash-chart-vei');
   const cores=['#1565C0','#166534','#7C3AED','#D97706','#0E7490','#991B1B'];
-  if(ctx2)_dashCharts.vei=new Chart(ctx2,{type:'doughnut',data:{labels:vEntries.map(e=>e[0]),datasets:[{data:vEntries.map(e=>e[1]),backgroundColor:cores.slice(0,vEntries.length),borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}}}});
+  if(ctx2)_dashCharts.vei=new Chart(ctx2,{type:'doughnut',data:{labels:vEntries.map(e=>e[0]),datasets:[{data:vEntries.map(e=>e[1]),backgroundColor:cores.slice(0,vEntries.length),borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}},datalabels:{display:true,color:'#fff',font:{weight:700,size:12},formatter:v=>v||''}}}});
 
   // Chart 3: Status
   const stCount={aprovado:0,pendente:0,negado:0,concluido:0};
   reservas.forEach(r=>{if(stCount[r.status]!==undefined)stCount[r.status]++;});
   const ctx3=$('dash-chart-status');
-  if(ctx3)_dashCharts.st=new Chart(ctx3,{type:'doughnut',data:{labels:['Aprovado','Pendente','Negado','Concluído'],datasets:[{data:[stCount.aprovado,stCount.pendente,stCount.negado,stCount.concluido],backgroundColor:['#16A34A','#D97706','#DC2626','#1D4ED8'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}}}});
+  if(ctx3)_dashCharts.st=new Chart(ctx3,{type:'doughnut',data:{labels:['Aprovado','Pendente','Negado','Concluído'],datasets:[{data:[stCount.aprovado,stCount.pendente,stCount.negado,stCount.concluido],backgroundColor:['#16A34A','#D97706','#DC2626','#1D4ED8'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}},datalabels:{display:true,color:'#fff',font:{weight:700,size:12},formatter:v=>v||''}}}});
 
   // Chart 4: Top departamentos
   const dCount={};
   reservas.filter(r=>r.status!=='negado').forEach(r=>{const d=r.departamento||'Outros';dCount[d]=(dCount[d]||0)+1;});
   const dEntries=Object.entries(dCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const ctx4=$('dash-chart-dep');
-  if(ctx4)_dashCharts.dep=new Chart(ctx4,{type:'bar',data:{labels:dEntries.map(e=>e[0].length>12?e[0].slice(0,12)+'…':e[0]),datasets:[{label:'Reservas',data:dEntries.map(e=>e[1]),backgroundColor:cores.slice(0,dEntries.length),borderRadius:5,borderWidth:0}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}});
+  if(ctx4)_dashCharts.dep=new Chart(ctx4,{type:'bar',data:{labels:dEntries.map(e=>e[0].length>12?e[0].slice(0,12)+'…':e[0]),datasets:[{label:'Reservas',data:dEntries.map(e=>e[1]),backgroundColor:cores.slice(0,dEntries.length),borderRadius:5,borderWidth:0}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false},datalabels:{display:true,anchor:'end',align:'right',color:'#374151',font:{weight:700,size:11},formatter:v=>v||''}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}});
 }
 
 /* ============================================================

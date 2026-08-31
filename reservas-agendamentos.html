@@ -376,6 +376,12 @@ tr:hover td{background:var(--gray-50)}
 .tl-ok{background:var(--green)}.tl-w{background:var(--warn)}.tl-r{background:var(--danger)}
 
 /* RESPONSIVE */
+@media print{
+  body *{visibility:hidden}
+  #ap-dashboard,#ap-dashboard *{visibility:visible}
+  #ap-dashboard{position:absolute;left:0;top:0;width:100%;padding:16px 0}
+  .dash-actions-noprint{display:none!important}
+}
 @media(max-width:640px){
   .topbar{padding:8px 12px;height:auto;min-height:52px;flex-wrap:wrap;row-gap:8px}
   .tb-brand{order:1}
@@ -955,6 +961,10 @@ tr:hover td{background:var(--gray-50)}
         </div>
 
         <div class="admin-pane" id="ap-dashboard">
+          <div class="dash-actions-noprint" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px">
+            <button class="btn btn-ghost btn-sm" onclick="exportarDashboardCSV()"><i class="ti ti-file-type-csv"></i> Exportar CSV</button>
+            <button class="btn btn-p btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Imprimir / PDF</button>
+          </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:18px" id="dash-kpis"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
             <div style="background:#fff;border-radius:var(--r14);border:1.5px solid var(--gray-200);padding:16px">
@@ -4898,6 +4908,55 @@ setInterval(()=>{if(currentUser)checkExpiracaoReservas();},5*60*1000);
    DASHBOARD
 ============================================================ */
 let _dashCharts={};
+function exportarDashboardCSV(){
+  const total=reservas.length;
+  const aprovadas=reservas.filter(r=>r.status==='aprovado'||r.status==='concluido').length;
+  const pendentes=reservas.filter(r=>r.status==='pendente').length;
+  const kmTotal=reservas.reduce((s,r)=>s+_ckKmTotal(r),0);
+  const taxa=total?Math.round((aprovadas/total)*100):0;
+
+  const linhas=[
+    ['Dashboard — Gestão de Frota'],
+    ['Gerado em',new Date().toLocaleString('pt-BR')],
+    [],
+    ['INDICADORES'],
+    ['Métrica','Valor'],
+    ['Total de reservas',total],
+    ['Aprovadas/Concluídas',aprovadas],
+    ['Pendentes',pendentes],
+    ['Km rodados',kmTotal],
+    ['Taxa de aprovação',taxa+'%'],
+    ['Veículos ativos',veiculos.filter(v=>v.status!=='manutencao').length],
+    []
+  ];
+
+  const meses={};
+  reservas.forEach(r=>{const m=r.data_saida?.slice(0,7);if(m)meses[m]=(meses[m]||0)+1;});
+  const mKeys=Object.keys(meses).sort().slice(-6);
+  const mLabels=mKeys.map(m=>{const[y,mo]=m.split('-');return['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(mo)-1]+'/'+y.slice(2);});
+  linhas.push(['RESERVAS POR MÊS'],['Mês','Reservas']);
+  mKeys.forEach((m,i)=>linhas.push([mLabels[i],meses[m]]));
+  linhas.push([]);
+
+  const vCount={};
+  reservas.filter(r=>r.status!=='negado').forEach(r=>{const v=veiculos.find(x=>x.id===r.veiculo_id);const n=v?.nome||'?';vCount[n]=(vCount[n]||0)+1;});
+  linhas.push(['USO POR VEÍCULO'],['Veículo','Reservas']);
+  Object.entries(vCount).sort((a,b)=>b[1]-a[1]).forEach(([n,c])=>linhas.push([n,c]));
+  linhas.push([]);
+
+  const stCount={aprovado:0,pendente:0,negado:0,concluido:0};
+  reservas.forEach(r=>{if(stCount[r.status]!==undefined)stCount[r.status]++;});
+  linhas.push(['STATUS DAS RESERVAS'],['Status','Quantidade'],
+    ['Aprovado',stCount.aprovado],['Pendente',stCount.pendente],['Negado',stCount.negado],['Concluído',stCount.concluido],[]);
+
+  const dCount={};
+  reservas.filter(r=>r.status!=='negado').forEach(r=>{const d=r.departamento||'Outros';dCount[d]=(dCount[d]||0)+1;});
+  linhas.push(['TOP DEPARTAMENTOS'],['Departamento','Reservas']);
+  Object.entries(dCount).sort((a,b)=>b[1]-a[1]).forEach(([d,c])=>linhas.push([d,c]));
+
+  _baixarCSV(linhas,'dashboard_frota_'+TODAY+'.csv');
+}
+
 function renderDashboard(){
   const el=$('dash-kpis');
   if(!el)return;

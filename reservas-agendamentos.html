@@ -747,11 +747,12 @@ tr:hover td{background:var(--gray-50)}
 
     <!-- MINHAS RESERVAS -->
     <div class="form-card" id="minhas-res-sec" style="display:none">
-      <div class="form-card-hdr" style="background:linear-gradient(120deg,var(--blue2),var(--blue3))">
+      <div class="form-card-hdr" style="background:linear-gradient(120deg,var(--blue2),var(--blue3));cursor:pointer" onclick="toggleMinhasRes()">
         <i class="ti ti-calendar-user"></i>
-        <div><h2>Minhas Reservas</h2><p>Histórico e reservas ativas do seu usuário</p></div>
+        <div style="flex:1"><h2>Minhas Reservas <span id="minhas-res-count" style="font-weight:400;font-size:12px;opacity:.85"></span></h2><p>Histórico e reservas ativas do seu usuário</p></div>
+        <i class="ti ti-chevron-down" id="minhas-res-chevron" style="font-size:20px;transition:transform .2s;flex-shrink:0"></i>
       </div>
-      <div class="form-card-body">
+      <div class="form-card-body" id="minhas-res-body" style="display:none">
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <select class="fi" style="flex:1;min-width:120px;font-size:12px" id="my-res-fil" onchange="renderMinhasRes()">
             <option value="">Todos os status</option>
@@ -3040,16 +3041,34 @@ function updateVeiculoStatus(){
 /* ============================================================
    MINHAS RESERVAS
 ============================================================ */
+function toggleMinhasRes(){
+  const body=$('minhas-res-body');
+  const chev=$('minhas-res-chevron');
+  if(!body)return;
+  const estaAberto=body.style.display!=='none';
+  body.style.display=estaAberto?'none':'block';
+  if(chev)chev.style.transform=estaAberto?'':'rotate(180deg)';
+  localStorage.setItem('frota_minhas_res_aberto',estaAberto?'0':'1');
+}
 function renderMinhasRes(){
   const sec=$('minhas-res-sec');
   const el=$('minhas-res-list');
   if(adminLogado && currentAdminTab!=='inicio'){if(sec)sec.style.display='none';return;}
   if(!currentUser||!el){if(sec)sec.style.display='none';return;}
   sec.style.display='block';
+  // Lembra a preferência de aberto/fechado do usuário — fechado por padrão,
+  // pra não empurrar "Solicitar Reserva" pra baixo em quem tem muito histórico
+  const aberto=localStorage.getItem('frota_minhas_res_aberto')==='1';
+  const body=$('minhas-res-body');
+  const chev=$('minhas-res-chevron');
+  if(body)body.style.display=aberto?'block':'none';
+  if(chev)chev.style.transform=aberto?'rotate(180deg)':'';
   const fil=$('my-res-fil')?.value||'';
   let list=reservas.filter(r=>r.responsavel===currentUser.nome);
   if(fil)list=list.filter(r=>r.status===fil);
   list.sort((a,b)=>b.data_saida.localeCompare(a.data_saida));
+  const cnt=$('minhas-res-count');
+  if(cnt)cnt.textContent=list.length?`(${list.length})`:'';
   if(!list.length){el.innerHTML='<div class="empty"><i class="ti ti-calendar-off"></i><h4>Nenhuma reserva encontrada</h4></div>';return;}
   el.innerHTML=list.map(r=>{
     const v=veiculos.find(x=>x.id===r.veiculo_id);
